@@ -7,6 +7,9 @@
 #include <cmath>
 #include <ostream>
 
+#include "rng.h"
+#include "node.h"
+
 #define RAPIDJSON_HAS_STDSTRING 1
 #include <rapidjson/document.h>
 #include <rapidjson/ostreamwrapper.h>
@@ -16,140 +19,6 @@
 namespace mcts {
 
 using namespace rapidjson;
-
-class RNG {
-public:
-    static RNG& Get() {
-        static thread_local RNG rng;
-        return rng;
-    }
-
-    template <typename T>
-    T operator()(T min, T max) noexcept {
-        return std::uniform_int_distribution<T>(min, max)(engine_);
-    }
-
-private:
-    RNG() noexcept {
-        std::random_device random_device;
-        std::vector<std::random_device::result_type> seed_data(std::mt19937_64::state_size);
-        std::generate(std::begin(seed_data),
-                      std::end(seed_data),
-                      std::ref(random_device));
-        std::seed_seq seq(std::begin(seed_data),
-                          std::end(seed_data));
-        engine_.seed(seq);
-    }
-
-    std::mt19937_64 engine_;
-};
-
-template <typename State, typename Move>
-class Node;
-
-template <typename State, typename Move>
-using NodePtr = std::shared_ptr<Node<State, Move>>;
-
-template <typename State, typename Move>
-using WeakPtr = std::weak_ptr<Node<State, Move>>;
-
-template <typename State, typename Move>
-class Node : public std::enable_shared_from_this<Node<State, Move>> {
-public:
-    using self_type = Node<State, Move>;
-    using ptr_type = NodePtr<State, Move>;
-    using parent_ptr_type = WeakPtr<State, Move>;
-
-    Node(const State& state = State(), const Move& move = Move(), NodePtr<State, Move> parent = nullptr)
-        : state_(state)
-        , move_(move)
-        , player_id_(state.GetPlayerID())
-        , score_(0)
-        , visits_(0)
-        , parent_(parent)
-        , possible_moves_(state.GetLegalMoves()) {
-    }
-
-    ptr_type MakeChild(const Move &next_move) {
-        State next_state(state_);
-        next_state.ApplyMove(next_move);
-        auto parent = this->shared_from_this();
-        auto new_node = std::make_shared<self_type>(
-                    next_state,
-                    next_move,
-                    parent);
-        children_.push_back(new_node);
-        RemoveMove(next_move);
-        return new_node;
-    }
-
-    bool IsLeaf() const noexcept {
-        return !children_.empty();
-    }
-
-    void Update(double result) noexcept {
-        score_ += result;
-        ++visits_;
-    }
-
-    void Update(double result, size_t visits) noexcept {
-        score_ += result;
-        visits_ += visits;
-    }
-
-    bool HasPassibleMoves() const noexcept {
-        return possible_moves_.empty();
-    }
-
-    double GetScore() const noexcept {
-        return score_;
-    }
-
-    size_t GetVisits() const noexcept {
-        return visits_;
-    }
-
-    const State & GetState() const {
-        return state_;
-    }
-
-    const std::vector<Move>& GetMoves() const noexcept {
-        return possible_moves_;
-    }
-
-    const Move & GetLastMove() const noexcept {
-        return move_;
-    }
-
-    int8_t GetPlayerID() const noexcept {
-        return player_id_;
-    }
-
-    const std::vector<ptr_type>& GetChildren() const {
-        return children_;
-    }
-
-    ptr_type GetParent() {
-        return parent_.lock();
-    }
-
-private:
-    void RemoveMove(const Move& move) {
-        auto itr = std::find(possible_moves_.begin(), possible_moves_.end(), move);
-        if (itr != possible_moves_.end()) {
-            possible_moves_.erase(itr);
-        }
-    }
-
-    State state_;
-    Move move_;
-    int8_t player_id_;
-    double score_;
-    size_t visits_;
-    parent_ptr_type parent_;
-    std::vector<ptr_type> children_;
-    std::vector<Move> possible_moves_;
-};
 
 template <typename State, typename Move>
 class MCTS {
