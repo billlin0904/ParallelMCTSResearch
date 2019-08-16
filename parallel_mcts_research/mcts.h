@@ -5,8 +5,17 @@
 #include <algorithm>
 #include <random>
 #include <cmath>
+#include <ostream>
+
+#define RAPIDJSON_HAS_STDSTRING 1
+#include <rapidjson/document.h>
+#include <rapidjson/ostreamwrapper.h>
+#include <rapidjson/writer.h>
+#include <rapidjson/prettywriter.h>
 
 namespace mcts {
+
+using namespace rapidjson;
 
 class RNG {
 public:
@@ -55,7 +64,7 @@ public:
         : state_(state)
         , move_(move)
         , player_id_(state.GetPlayerID())
-        , wins_(0)
+        , score_(0)
         , visits_(0)
         , parent_(parent)
         , possible_moves_(state.GetLegalMoves()) {
@@ -79,12 +88,12 @@ public:
     }
 
     void Update(double result) noexcept {
-        wins_ += result;
+        score_ += result;
         ++visits_;
     }
 
     void Update(double result, size_t visits) noexcept {
-        wins_ += result;
+        score_ += result;
         visits_ += visits;
     }
 
@@ -92,8 +101,8 @@ public:
         return possible_moves_.empty();
     }
 
-    double GetWins() const noexcept {
-        return wins_;
+    double GetScore() const noexcept {
+        return score_;
     }
 
     size_t GetVisits() const noexcept {
@@ -135,7 +144,7 @@ private:
     State state_;
     Move move_;
     int8_t player_id_;
-    double wins_;
+    double score_;
     size_t visits_;
     parent_ptr_type parent_;
     std::vector<ptr_type> children_;
@@ -149,12 +158,15 @@ public:
 
     MCTS();
 
-    Move Search(int evaluate_count);
+	MCTS(const MCTS&) = delete;
+	MCTS& operator=(const MCTS &) = delete;
+
+    Move Search(int32_t evaluate_count);
 
     void SetOpponentMove(const Move & opponent_move);
 
 private:
-    constexpr double DefaultUCB() const {
+    constexpr double DefaultUCB() const noexcept {
         return std::sqrt(2.0);
     }
 
@@ -166,11 +178,47 @@ private:
 
     node_ptr_type Expand(node_ptr_type &node);
 
-    double Rollout(int evaluate_count, const node_ptr_type &leaf);
+    double Rollout(int32_t evaluate_count, const node_ptr_type &leaf);
 
     void BackPropagation(const node_ptr_type &leaf, double score);
 
-    int visits_;
+	friend void WriteChildren(const MCTS& mcts, Value & parent_node, node_ptr_type parent, Document & document) {
+		Value children_node(rapidjson::kArrayType);
+
+		for (const auto &children : parent->GetChildren()) {
+			Value object(kObjectType);
+			object.AddMember("visits", children->GetVisits(), document.GetAllocator());
+			object.AddMember("score", children->GetScore(), document.GetAllocator());
+			object.AddMember("state", children->GetState().ToString(), document.GetAllocator());
+			object.AddMember("move", children->GetLastMove().ToString(), document.GetAllocator());
+			if (children->IsLeaf()) {
+				WriteChildren(mcts, object, children, document);
+			}
+			children_node.PushBack(object, document.GetAllocator());
+		}
+		parent_node.AddMember("children", children_node, document.GetAllocator());
+	}
+
+	friend std::ostream& operator<<(std::ostream& stream, const MCTS& mcts) {		
+		Document document;
+
+		Value parent_node(kObjectType);
+		parent_node.AddMember("visits", mcts.root_->GetVisits(), document.GetAllocator());
+		parent_node.AddMember("score", mcts.root_->GetScore(), document.GetAllocator());
+		parent_node.AddMember("state", mcts.root_->GetState().ToString(), document.GetAllocator());
+		parent_node.AddMember("move", mcts.root_->GetLastMove().ToString(), document.GetAllocator());
+
+		WriteChildren(mcts, parent_node, mcts.root_, document);
+		document.SetObject();
+		document.AddMember("result", parent_node, document.GetAllocator());
+
+		OStreamWrapper wrapper{ stream };
+		PrettyWriter<OStreamWrapper> writer{ wrapper };
+		document.Accept(writer);
+		return stream;
+	}
+
+    int32_t visits_;
     node_ptr_type root_;
     node_ptr_type current_node_;
 };
@@ -184,7 +232,7 @@ MCTS<State, Move>::MCTS()
 
 template <typename State, typename Move>
 double MCTS<State, Move>::GetUCB(const typename MCTS<State, Move>::node_ptr_type& node) const {
-    return (node->GetWins() / node->GetVisits())
+    return (node->GetScore() / node->GetVisits())
             + DefaultUCB() * std::sqrt(std::log(double(node->GetVisits())))
             / double(node->GetVisits());
 
@@ -202,7 +250,7 @@ typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::GetBestChild(const 
 }
 
 template <typename State, typename Move>
-Move MCTS<State, Move>::Search(int evaluate_count) {
+Move MCTS<State, Move>::Search(int32_t evaluate_count) {
     visits_ = evaluate_count;
 
     for (auto i = 0; i < evaluate_count; ++i) {
@@ -216,7 +264,7 @@ Move MCTS<State, Move>::Search(int evaluate_count) {
     auto candidate_node = current_node_->GetChildren();
     auto itr = std::max_element(candidate_node.begin(), candidate_node.end(),
                                 [](const typename MCTS<State, Move>::node_ptr_type& large, const typename MCTS<State, Move>::node_ptr_type& node) {
-        return ((node->GetWins() / double(node->GetVisits())) > (large->GetWins() / double(large->GetVisits())));
+        return ((node->GetScore() / double(node->GetVisits())) > (large->GetScore() / double(large->GetVisits())));
     });
     current_node_ = *itr;
     return current_node_->GetLastMove();
@@ -268,7 +316,7 @@ typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::Expand(typename MCT
 }
 
 template <typename State, typename Move>
-double MCTS<State, Move>::Rollout(int evaluate_count, const typename MCTS<State, Move>::node_ptr_type& leaf) {
+double MCTS<State, Move>::Rollout(int32_t evaluate_count, const typename MCTS<State, Move>::node_ptr_type& leaf) {
     double total_score = 0.0;
     for (auto i = 0; i < evaluate_count; ++i) {
         auto state = leaf->GetState();

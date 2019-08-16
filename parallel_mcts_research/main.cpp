@@ -2,6 +2,8 @@
 #include <map>
 #include <iostream>
 #include <cassert>
+#include <fstream>
+#include <sstream>
 
 #include "mcts.h"
 
@@ -13,7 +15,13 @@ public:
 
     size_t index;
 
-private:
+	std::string ToString() const {
+		std::ostringstream ostr;
+		ostr << index;
+		return ostr.str();
+	}
+
+private:	
     friend bool operator==(const GameMove& lhs, const GameMove& rhs) noexcept;
 };
 
@@ -123,6 +131,16 @@ public:
 
         return EMPTY;
     }
+
+	std::string ToString() const {
+		std::ostringstream ostr;
+		for (auto i = 0; i < 3; ++i) {
+			auto idx = 3 * i;
+			ostr << board_[idx] << board_[idx + 1] << board_[idx + 2];
+		}
+		return ostr.str();
+	}
+
 private:
     friend std::ostream& operator<<(std::ostream& ostr, const GameState& state) {
         for (auto i = 0; i < 3; ++i) {
@@ -150,8 +168,9 @@ int main() {
 
         while (!game.IsTerminal()) {
             if (game.GetPlayerID() == 1) {
-                /*
+				/*
                 std::cout << "Human turn!" << "\n";
+				std::cout << game;
 
                 while (true) {
                     int32_t input = 0;
@@ -159,30 +178,32 @@ int main() {
                     if (game.IsLegalMove(input)) {
                         GameMove human_move(input);
                         game.ApplyMove(human_move);
-                        ai2.SetOpponentMove(human_move);
+						ai1.SetOpponentMove(human_move);
                         break;
                     }
                 }
-                */
-
+				*/
+				
                 auto move = ai2.Search(100);
                 assert(game.IsLegalMove(move));
                 //std::cout << "AI2 turn!" << "\n";
                 game.ApplyMove(move);
                 ai1.SetOpponentMove(move);
-
             } else {
                 auto move = ai1.Search(100);
                 assert(game.IsLegalMove(move));
                 //std::cout << "AI1 turn!" << "\n";
                 game.ApplyMove(move);
                 ai2.SetOpponentMove(move);
+								
+				std::cout << ai2 << "\n";
             }
 
-            //std::cout << game;
+            std::cout << game;
+			std::cin.get();
         }
 
-        //std::cout << game;
+        std::cout << game;
 
         if (game.IsWinnerExsts()) {
             stats[game.CheckWinner()]++;
