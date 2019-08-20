@@ -10,48 +10,60 @@
 #include "rng.h"
 #include "node.h"
 
+#define ENABLE_JSON 1
+
+#if ENABLE_JSON
 #define RAPIDJSON_HAS_STDSTRING 1
 #include <rapidjson/document.h>
 #include <rapidjson/ostreamwrapper.h>
 #include <rapidjson/writer.h>
 #include <rapidjson/prettywriter.h>
+using namespace rapidjson;
+#endif
 
 namespace mcts {
-
-using namespace rapidjson;
 
 template <typename State, typename Move>
 class MCTS {
 public:
     using node_ptr_type = typename Node<State, Move>::ptr_type;
+	using children_vector_type = std::vector<node_ptr_type>;
 
     MCTS();
 
-	MCTS(const MCTS&) = delete;
-	MCTS& operator=(const MCTS &) = delete;
+	MCTS(const children_vector_type& children);
 
-    Move Search(int32_t evaluate_count);
+	MCTS(const MCTS&) = default;
+	MCTS& operator=(const MCTS &) = default;
 
-    void SetOpponentMove(const Move & opponent_move);
+    Move Search(int32_t evaluate_count, int32_t rollout_limit);
+
+    void SetOpponentMove(const Move& opponent_move);
+
+	size_t GetMaxDepth(size_t parent_depth = 0) const;
+
+	node_ptr_type GetCurrentNode() const;
 
 private:
     constexpr double DefaultUCB() const noexcept {
         return std::sqrt(2.0);
     }
 
-    double GetUCB(const node_ptr_type &node) const;
+    double GetUCB(const node_ptr_type& node) const;
 
-    node_ptr_type GetBestChild(const node_ptr_type &parent) const;
+	node_ptr_type GetBestChild(const node_ptr_type& parent) const;
+
+    node_ptr_type GetBestUCBChild(const node_ptr_type& parent) const;
 
     node_ptr_type Select() const;
 
-    node_ptr_type Expand(node_ptr_type &node);
+    node_ptr_type Expand(node_ptr_type& node);
 
-    double Rollout(int32_t evaluate_count, const node_ptr_type &leaf);
+    double Rollout(int32_t evaluate_count, const node_ptr_type& leaf);
 
-    void BackPropagation(const node_ptr_type &leaf, double score);
-
-	friend void WriteChildren(const MCTS& mcts, Value & parent_node, node_ptr_type parent, Document & document) {
+    void BackPropagation(const node_ptr_type& leaf, double score);
+#if ENABLE_JSON
+	friend void WriteChildren(const MCTS& mcts, Value & parent_node, node_ptr_type parent, Document& document) {
 		Value children_node(rapidjson::kArrayType);
 
 		for (const auto &children : parent->GetChildren()) {
@@ -72,10 +84,12 @@ private:
 		Document document;
 
 		Value parent_node(kObjectType);
+
 		parent_node.AddMember("visits", mcts.root_->GetVisits(), document.GetAllocator());
-		parent_node.AddMember("score", mcts.root_->GetScore(), document.GetAllocator());
-		parent_node.AddMember("state", mcts.root_->GetState().ToString(), document.GetAllocator());
+		parent_node.AddMember("score", mcts.root_->GetScore(), document.GetAllocator());		
 		parent_node.AddMember("move", mcts.root_->GetLastMove().ToString(), document.GetAllocator());
+		parent_node.AddMember("max_depth", mcts.GetMaxDepth(), document.GetAllocator());
+		parent_node.AddMember("state", mcts.root_->GetState().ToString(), document.GetAllocator());
 
 		WriteChildren(mcts, parent_node, mcts.root_, document);
 		document.SetObject();
@@ -86,8 +100,8 @@ private:
 		document.Accept(writer);
 		return stream;
 	}
-
-    int32_t visits_;
+#endif
+	int64_t visits_;
     node_ptr_type root_;
     node_ptr_type current_node_;
 };
@@ -100,6 +114,14 @@ MCTS<State, Move>::MCTS()
 }
 
 template <typename State, typename Move>
+MCTS<State, Move>::MCTS(const children_vector_type &children)
+	: MCTS() {
+	for (auto child : children) {
+		current_node_->AddChild(child);
+	}
+}
+
+template <typename State, typename Move>
 double MCTS<State, Move>::GetUCB(const typename MCTS<State, Move>::node_ptr_type& node) const {
     return (node->GetScore() / node->GetVisits())
             + DefaultUCB() * std::sqrt(std::log(double(node->GetVisits())))
@@ -108,7 +130,7 @@ double MCTS<State, Move>::GetUCB(const typename MCTS<State, Move>::node_ptr_type
 }
 
 template <typename State, typename Move>
-typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::GetBestChild(const typename MCTS<State, Move>::node_ptr_type& parent) const {
+typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::GetBestUCBChild(const typename MCTS<State, Move>::node_ptr_type& parent) const {
     const auto& children = parent->GetChildren();
     auto itr = std::max_element(children.begin(), children.end(), [this](
                                 const typename MCTS<State, Move>::node_ptr_type &first,
@@ -119,24 +141,38 @@ typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::GetBestChild(const 
 }
 
 template <typename State, typename Move>
-Move MCTS<State, Move>::Search(int32_t evaluate_count) {
+typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::GetBestChild(const typename MCTS<State, Move>::node_ptr_type& parent) const {
+	auto candidate_node = parent->GetChildren();
+	auto itr = std::max_element(candidate_node.begin(), candidate_node.end(),
+		[](const typename MCTS<State, Move>::node_ptr_type& large, const typename MCTS<State, Move>::node_ptr_type& node) {
+			return ((node->GetScore() / double(node->GetVisits())) > (large->GetScore() / double(large->GetVisits())));
+		});
+	return *itr;
+}
+
+template <typename State, typename Move>
+typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::GetCurrentNode() const {
+	return current_node_;
+}
+
+template <typename State, typename Move>
+Move MCTS<State, Move>::Search(int32_t evaluate_count, int32_t rollout_limit) {
     visits_ = evaluate_count;
 
     for (auto i = 0; i < evaluate_count; ++i) {
         auto selected_parent = Select();
         auto selected_leaf = Expand(selected_parent);
-        auto score = Rollout(evaluate_count, selected_leaf);
+        auto score = Rollout(rollout_limit, selected_leaf);
         BackPropagation(selected_leaf, score);
     }
 
-    // Select best move
-    auto candidate_node = current_node_->GetChildren();
-    auto itr = std::max_element(candidate_node.begin(), candidate_node.end(),
-                                [](const typename MCTS<State, Move>::node_ptr_type& large, const typename MCTS<State, Move>::node_ptr_type& node) {
-        return ((node->GetScore() / double(node->GetVisits())) > (large->GetScore() / double(large->GetVisits())));
-    });
-    current_node_ = *itr;
+	current_node_ = GetBestChild(current_node_);
     return current_node_->GetLastMove();
+}
+
+template <typename State, typename Move>
+size_t MCTS<State, Move>::GetMaxDepth(size_t parent_depth) const {
+	return root_->GetMaxDepth(parent_depth);
 }
 
 template <typename State, typename Move>
@@ -164,7 +200,7 @@ template <typename State, typename Move>
 typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::Select() const {
     auto selected_node = current_node_;
     while (selected_node->HasPassibleMoves() && selected_node->IsLeaf()) {
-        selected_node = GetBestChild(selected_node);
+        selected_node = GetBestUCBChild(selected_node);
     }
     return selected_node;
 }
@@ -185,9 +221,9 @@ typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::Expand(typename MCT
 }
 
 template <typename State, typename Move>
-double MCTS<State, Move>::Rollout(int32_t evaluate_count, const typename MCTS<State, Move>::node_ptr_type& leaf) {
+double MCTS<State, Move>::Rollout(int32_t rollout_limit, const typename MCTS<State, Move>::node_ptr_type& leaf) {
     double total_score = 0.0;
-    for (auto i = 0; i < evaluate_count; ++i) {
+    for (auto i = 0; i < rollout_limit; ++i) {
         auto state = leaf->GetState();
         while (!state.IsTerminal()) {
             state.ApplyMove(state.GetRandomMove());

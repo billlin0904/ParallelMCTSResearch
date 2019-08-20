@@ -32,6 +32,10 @@ public:
         , possible_moves_(state.GetLegalMoves()) {
     }
 
+	void AddChild(const ptr_type &child) {
+		children_.push_back(child);
+	}
+
     ptr_type MakeChild(const Move &next_move) {
         State next_state(state_);
         next_state.ApplyMove(next_move);
@@ -54,7 +58,7 @@ public:
         ++visits_;
     }
 
-    void Update(double result, size_t visits) noexcept {
+    void Update(double result, int64_t visits) noexcept {
         score_ += result;
         visits_ += visits;
     }
@@ -67,7 +71,7 @@ public:
         return score_;
     }
 
-    size_t GetVisits() const noexcept {
+	int64_t GetVisits() const noexcept {
         return visits_;
     }
 
@@ -91,9 +95,26 @@ public:
         return children_;
     }
 
-    ptr_type GetParent() {
+    ptr_type GetParent() const {
         return parent_.lock();
     }
+
+	size_t GetChildrenSize() const {
+		return children_.size();
+	}
+
+	size_t GetMaxDepth(size_t parent_depth) const {
+		if (!IsLeaf()) {
+			return parent_depth + 1;
+		}
+		size_t max_depth = 0;
+		for (const auto& children : GetChildren()) {
+			for (const auto& child : children->GetChildren()) {
+				max_depth = (std::max)(max_depth, child->GetMaxDepth(parent_depth));
+			}
+		}
+		return max_depth;
+	}
 
 private:
     void RemoveMove(const Move& move) {
@@ -107,7 +128,7 @@ private:
     Move move_;
     int8_t player_id_;
     double score_;
-    size_t visits_;
+    int64_t visits_;
     parent_ptr_type parent_;
     std::vector<ptr_type> children_;
     std::vector<Move> possible_moves_;

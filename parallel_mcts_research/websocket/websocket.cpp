@@ -8,14 +8,15 @@ namespace websocket = boost::beast::websocket;
 const int WebSocket::CONNECT_TIMEOUT = 5;
 const int WebSocket::MAX_SEND_QUEUE_SIZE = 128;
 
-WebSocket::WebSocket(boost::asio::io_service& _ios, const std::string &_host, const std::string &_port)
+WebSocket::WebSocket(boost::asio::io_service& _ios, const std::string &_host, const std::string &_port, WebSocketCallback* callback)
     : resolver_(_ios)
     , deadline_(_ios)
     , host_(_host)
     , port_(_port)
     , buffer_(new boost::beast::multi_buffer())
     , send_queue_(MAX_SEND_QUEUE_SIZE)
-    , strand_(_ios) {
+    , strand_(_ios)
+	, callback_(callback) {
 }
 
 WebSocket::~WebSocket() {
@@ -28,9 +29,9 @@ void WebSocket::Connect() {
     connecting_ = true;
     closing_ = false;
     timeouted_ = false;
-
+#if ENABLE_SSL
     DoShutdown();
-
+#endif
     send_queue_.clear();
 
     SetTimeout(CONNECT_TIMEOUT);
@@ -106,7 +107,9 @@ void WebSocket::OnRead(boost::system::error_code ec, std::size_t) {
 }
 
 void WebSocket::onClosed(boost::beast::error_code) {
+#if ENABLE_SSL
     ForceClose();
+#endif
     connecting_ = false;
     callback_->OnDisconnected(shared_from_this());
     closing_ = false;
@@ -181,7 +184,7 @@ protected:
                                 std::placeholders::_1,
                                 std::placeholders::_2)));
     }
-
+#if ENABLE_SSL
     void ForceClose() override {
         closing_ = true;
         boost::beast::error_code beast_ec;
@@ -205,16 +208,18 @@ protected:
     int GetLocalPort() const override {
         return ws_->lowest_layer().local_endpoint().port();
     }
-
+#endif
 public:
-    explicit NoSSLWebSocket(boost::asio::io_service& _ios, const std::string &host, const std::string &port)
-        : WebSocket(_ios, host, port)
+    explicit NoSSLWebSocket(boost::asio::io_service& _ios, const std::string &host, const std::string &port, WebSocketCallback* callback)
+        : WebSocket(_ios, host, port, callback)
         , ws_(new websocket::stream<tcp::socket>(_ios)) {
         ws_->binary(true);
     }
 
     ~NoSSLWebSocket() override {
+#if ENABLE_SSL
         ForceClose();
+#endif
     }
 
     void Receive() override {
@@ -237,6 +242,7 @@ public:
     }
 };
 
+#if ENABLE_SSL
 class SSLWebSocket : public WebSocket {
     ssl::context ssl_context_;
     std::unique_ptr<websocket::stream<ssl::stream<tcp::socket>>> ws_;
@@ -338,12 +344,18 @@ public:
                                   std::placeholders::_1));
     }
 };
-
-std::shared_ptr<WebSocket> WebSocket::MakeSocket(const std::string &scheme, const std::string &host, const std::string &port, boost::asio::io_service& _ios) {
+#endif
+std::shared_ptr<WebSocket> WebSocket::MakeSocket(const std::string &scheme,
+	const std::string &host,
+	const std::string &port, 
+	boost::asio::io_service& _ios,
+	WebSocketCallback* callback) {
+#if ENABLE_SSL
     if (scheme == "wss") {
-        return std::make_shared<SSLWebSocket>(_ios, host, port);
+        return std::make_shared<SSLWebSocket>(_ios, host, port, callback);
     }
-    return std::make_shared<NoSSLWebSocket>(_ios, host, port);
+#endif
+    return std::make_shared<NoSSLWebSocket>(_ios, host, port, callback);
 }
 
 }

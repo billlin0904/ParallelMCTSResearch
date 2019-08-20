@@ -1,0 +1,39 @@
+#game {
+	width: auto;
+	position: relative;
+	margin-top: 0px;
+	margin-left: 50px;
+}
+
+#gameboard {
+	background-color: #CDDC39;
+	border: 2px solid #827717;
+	box-shadow: 4px 4px 4px #aaaaaa;
+}
+
+p {
+	width:auto;
+	line-height: relative;
+	font-size: 32px;
+	font-family: "Georgia";
+	margin-left: 50px;
+	margin-top: 350px;
+	display: inline;
+	color: #C2185B;
+	position: fixed;
+	text-align: center;
+}
+
+#stones {
+	font-size: 18px;
+	font-family: "Georgia";
+	color: #FF6F00;
+}
+
+.overlay {
+    bottom: 0;
+    left: 0;
+    position: fixed;
+    right: 0;
+    top: 0;
+}
