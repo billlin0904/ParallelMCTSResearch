@@ -41,6 +41,7 @@ window.onload = function() {
             var i = json.packet.move.row;
 			var j = json.packet.move.column;
 			var color = json.packet.player_id;
+			//updateGameTree(json.mcts_result);
 			gameboard[i][j] = color;
 			drawnodes(i, j, color);
 			if(json.color != usr) {
@@ -116,6 +117,47 @@ window.onload = function() {
         	}
         }
     };
+	
+	function updateGameTree(mcts_result) {
+		var svg = d3.select('svg');
+	    var width = +svg.attr("width");
+	    var height = +svg.attr("height");
+	    var g = svg.append("g").attr("transform", "translate(40, 0)");
+		var tree = d3.tree().size([height - 400, width - 160]);
+		const root = d3.hierarchy(mcts_result);
+		
+		const link = g.append("g")
+    		.attr("fill", "none")
+    		.attr("stroke", "#555")
+    		.attr("stroke-opacity", 0.4)
+    		.attr("stroke-width", 1.5)
+  			.selectAll("path")
+    		.data(root.links())
+    		.join("path")
+      		.attr("d", d3.linkHorizontal()
+          		.x(d => d.y)
+          		.y(d => d.x));
+  
+  		const node = g.append("g")
+      		.attr("stroke-linejoin", "round")
+      		.attr("stroke-width", 3)
+    		.selectAll("g")
+    		.data(root.descendants())
+    		.join("g")
+      		.attr("transform", d => `translate(${d.y},${d.x})`);
+
+  		node.append("circle")
+      		.attr("fill", d => d.children ? "#555" : "#999")
+      		.attr("r", 2.5);
+
+  		node.append("text")
+      		.attr("dy", "0.31em")
+      		.attr("x", d => d.children ? -6 : 6)
+      		.attr("text-anchor", d => d.children ? "end" : "start")
+      		.text(d => d.data.name)
+    		.clone(true).lower()
+      		.attr("stroke", "white");
+    }
 
     function disableScreen() {
 	    var div= document.createElement("div");
@@ -158,11 +200,11 @@ window.onload = function() {
 		var gradient = context.createRadialGradient(10 + 20 * i, 10 + 20 * j, 0, 10 + 20 * i, 10 + 20 * j, 12)
 		//var gradient = context.createRadialGradient(20 + 40 * i, 20 + 40 * j, 0, 20 + 40 * i, 20 + 40 * j, 12)
 		if (user == 1) {
-			gradient.addColorStop(0, "#4764AE");
-			gradient.addColorStop(1, "#4764AE");
+			gradient.addColorStop(0, 'black');
+			gradient.addColorStop(1, 'black');
 		} else {
-			gradient.addColorStop(0, "#11BE31");
-			gradient.addColorStop(1, "#11BE31");
+			gradient.addColorStop(0, 'white');
+			gradient.addColorStop(1, 'white');
 		}
 		context.fillStyle = gradient;
 		context.fill();

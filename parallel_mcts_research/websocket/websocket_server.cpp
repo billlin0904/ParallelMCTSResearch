@@ -8,7 +8,7 @@ Exception::Exception(boost::system::error_code ec) {
 	message_ = ostr.str();
 }
 
-const char* Exception::what() const {
+const char* Exception::what() const noexcept {
 	return message_.c_str();
 }
 

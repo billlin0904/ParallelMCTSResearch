@@ -50,7 +50,7 @@ public:
 
 	virtual ~Exception() = default;
 
-	const char* what() const override;
+    const char * what() const noexcept override;
 private:
 	std::string message_;
 };

@@ -44,6 +44,10 @@ public:
 
 	node_ptr_type GetCurrentNode() const;
 
+#if ENABLE_JSON
+    void WriteTo(Document& document) const;
+#endif
+
 private:
     constexpr double DefaultUCB() const noexcept {
         return std::sqrt(2.0);
@@ -69,32 +73,21 @@ private:
 		for (const auto &children : parent->GetChildren()) {
 			Value object(kObjectType);
 			object.AddMember("visits", children->GetVisits(), document.GetAllocator());
-			object.AddMember("score", children->GetScore(), document.GetAllocator());
-			object.AddMember("state", children->GetState().ToString(), document.GetAllocator());
-			object.AddMember("move", children->GetLastMove().ToString(), document.GetAllocator());
+            object.AddMember("value", children->GetScore(), document.GetAllocator());
+            object.AddMember("state", children->GetState().ToString(), document.GetAllocator());
+            object.AddMember("name", children->GetLastMove().ToString(), document.GetAllocator());
 			if (children->IsLeaf()) {
 				WriteChildren(mcts, object, children, document);
 			}
 			children_node.PushBack(object, document.GetAllocator());
 		}
 		parent_node.AddMember("children", children_node, document.GetAllocator());
-	}
+	}    
 
 	friend std::ostream& operator<<(std::ostream& stream, const MCTS& mcts) {		
-		Document document;
-
-		Value parent_node(kObjectType);
-
-		parent_node.AddMember("visits", mcts.root_->GetVisits(), document.GetAllocator());
-		parent_node.AddMember("score", mcts.root_->GetScore(), document.GetAllocator());		
-		parent_node.AddMember("move", mcts.root_->GetLastMove().ToString(), document.GetAllocator());
-		parent_node.AddMember("max_depth", mcts.GetMaxDepth(), document.GetAllocator());
-		parent_node.AddMember("state", mcts.root_->GetState().ToString(), document.GetAllocator());
-
-		WriteChildren(mcts, parent_node, mcts.root_, document);
-		document.SetObject();
-		document.AddMember("result", parent_node, document.GetAllocator());
-
+        Document document;
+        document.SetObject();
+        mcts.WriteTo(document);
 		OStreamWrapper wrapper{ stream };
 		PrettyWriter<OStreamWrapper> writer{ wrapper };
 		document.Accept(writer);
@@ -120,6 +113,22 @@ MCTS<State, Move>::MCTS(const children_vector_type &children)
 		current_node_->AddChild(child);
 	}
 }
+
+#if ENABLE_JSON
+template <typename State, typename Move>
+void MCTS<State, Move>::WriteTo(Document& document) const {
+    Value parent_node(kObjectType);
+
+    parent_node.AddMember("visits", root_->GetVisits(), document.GetAllocator());
+    parent_node.AddMember("value", root_->GetScore(), document.GetAllocator());
+    parent_node.AddMember("name", root_->GetLastMove().ToString(), document.GetAllocator());
+    parent_node.AddMember("max_depth", GetMaxDepth(), document.GetAllocator());
+    parent_node.AddMember("state", root_->GetState().ToString(), document.GetAllocator());
+
+    WriteChildren(*this, parent_node, root_, document);
+    document.AddMember("mcts_result", parent_node, document.GetAllocator());
+}
+#endif
 
 template <typename State, typename Move>
 double MCTS<State, Move>::GetUCB(const typename MCTS<State, Move>::node_ptr_type& node) const {
