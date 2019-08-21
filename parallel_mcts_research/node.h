@@ -15,6 +15,10 @@ using NodePtr = std::shared_ptr<Node<State, Move>>;
 template <typename State, typename Move>
 using WeakPtr = std::weak_ptr<Node<State, Move>>;
 
+static double DefaultUCB() noexcept {
+	return std::sqrt(2.0);
+}
+
 template <typename State, typename Move>
 class Node : public std::enable_shared_from_this<Node<State, Move>> {
 public:
@@ -114,6 +118,12 @@ public:
 			}
 		}
 		return max_depth;
+	}
+
+	double GetUCB() const {
+		return (GetScore() / GetVisits())
+			+ DefaultUCB() * std::sqrt(std::log(double(GetVisits())))
+			/ double(GetVisits());
 	}
 
 private:

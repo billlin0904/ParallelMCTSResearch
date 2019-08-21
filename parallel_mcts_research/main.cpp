@@ -4,6 +4,7 @@
 #include <cassert>
 #include <fstream>
 #include <sstream>
+#include <unordered_set>
 
 #include "rng.h"
 #include "mcts.h"
@@ -321,13 +322,20 @@ static int32_t GetRoomID() noexcept {
 
 class GomokuRoom {
 public:
-    explicit GomokuRoom(int32_t room_id)
+    GomokuRoom(int32_t room_id, websocket::WebSocketServer *server)
         : room_id_(room_id)
-        , round_id_(GetRoundID()) {
+        , round_id_(GetRoundID())
+		, server_(server) {
     }
 
-    std::string EnterRoom() {
-        return Encoder::EnterRoom(*state_, room_id_, round_id_);
+    void EnterRoom(int32_t session_id) {
+		if (!players_.empty()) {
+			players_.insert(session_id);
+			server_->SentTo(session_id, Encoder::EnterRoom(*state_, room_id_, round_id_));
+		} else {
+			watchers_.insert(session_id);
+			SendWatchers(Encoder::EnterRoom(*state_, room_id_, round_id_));
+		}		
     }
 
     std::string NewRound() {
@@ -344,10 +352,7 @@ public:
 
     std::string Turn() {
         std::cout << "Server:" << std::endl << *state_ << std::endl;
-        if (state_->IsTerminal()) {
-            return NewRound();
-        }
-        auto move = ai_->Search(80, 30);
+        auto move = ai_->Search(80, 3000);
         state_->ApplyMove(move);
         std::cout << "Server move: " << move.ToString() << std::endl << *state_ << std::endl;
         return Encoder::Turn(move, *state_, *ai_, room_id_, round_id_);
@@ -357,9 +362,21 @@ public:
         return state_->IsTerminal();
     }
 
+	void LeaveWatcher(int32_t session_id) {
+		watchers_.erase(session_id);
+	}
+
 private:
+	void SendWatchers(const std::string& message) {
+		for (auto session_id : watchers_) {
+			server_->SentTo(session_id, message);
+		}
+	}
     int32_t room_id_;
     int32_t round_id_;
+	websocket::WebSocketServer* server_;
+	std::unordered_set<int32_t> players_;
+	std::unordered_set<int32_t> watchers_;
     std::unique_ptr<MCTS<GomokuGameState, GomokuGameMove>> ai_;
     std::unique_ptr<GomokuGameState> state_;
 };
@@ -410,7 +427,7 @@ public:
                 EnterRoom(s, (*itr).second);
             }
             break;
-        case CommandID::TURN:
+        case CommandID::TURN:			
             Turn(s, packet, (*itr).second);
             break;
         }
@@ -424,26 +441,33 @@ private:
     void EnterRoom(const std::shared_ptr<websocket::Session>& s, int32_t room_id) {
         auto itr = room_.find(room_id);
         if (itr == room_.end()) {
-            s->Send((*itr).second->EnterRoom());
+			(*itr).second->EnterRoom(s->GetSessionID());
         }
     }
 
     void NewRoom(const std::shared_ptr<websocket::Session>& s) {
         auto room_id = GetRoomID();
         session_room_[s->GetSessionID()] = room_id;
-        std::unique_ptr<GomokuRoom> room(new GomokuRoom(room_id));
+        std::unique_ptr<GomokuRoom> room(new GomokuRoom(room_id, this));
         room->NewRound();
-        s->Send(room->EnterRoom());
+		room->EnterRoom(s->GetSessionID());
         room_.insert(std::make_pair(room_id, std::move(room)));
     }
 
     void Turn(const std::shared_ptr<websocket::Session> &s, const Value& packet, int32_t room_id) {
         auto itr = room_.find(room_id);
         if (itr != room_.end()) {
+			if ((*itr).second->IsTerminal()) {
+				s->Send((*itr).second->NewRound());
+				return;
+			}
             const GomokuGameMove move(packet["move"]["row"].GetInt(), packet["move"]["column"].GetInt());
             std::cout << "Client move: " << move.ToString() << std::endl;
             (*itr).second->SetOpponentMove(move);
             s->Send((*itr).second->Turn());
+			if ((*itr).second->IsTerminal()) {
+				s->Send((*itr).second->NewRound());
+			}
         }
     }
 

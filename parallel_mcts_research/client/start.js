@@ -7,12 +7,35 @@ var gameboard = [];
 var MAX_WIDTH = 10;
 var MAX_HEIGHT = 10;
 
-for (var i=0; i<MAX_WIDTH; i++) {
-	gameboard[i] = [];
-	for (var j=0; j<MAX_HEIGHT; j++) {
-		gameboard[i][j] = 0;
+var rectW = 60;
+var rectH = 30;
+var duration = 750;
+
+var margin = {
+    top: 20,
+    right: 120,
+    bottom: 20,
+    left: 120
+},
+
+width = 960 - margin.right - margin.left,
+height = 800 - margin.top - margin.bottom;
+
+clearBoard();
+
+function clearBoard() {
+	for (var i=0; i<MAX_WIDTH; i++) {
+		gameboard[i] = [];
+		for (var j=0; j<MAX_HEIGHT; j++) {
+			gameboard[i][j] = 0;
+		}
 	}
 }
+
+var root = {
+  "name": "root",
+  "children": []
+};
 
 window.onload = function() {
     var canvas = document.getElementById("gameboard");
@@ -22,8 +45,6 @@ window.onload = function() {
     connection.onopen = function () {
 		connection.send(JSON.stringify({packet: { cmd: 1000 } }));
         initalize_area();
-        document.getElementById("status").innerHTML = "Black Stones. You play first.";
-        document.getElementById("stones").innerHTML = "BLACK";
     };
 
     connection.onerror = function (error) {
@@ -34,6 +55,7 @@ window.onload = function() {
         try {
             var json = JSON.parse(message.data);
 		} catch (e) {
+			console.log(e);
             return;
         }
 
@@ -41,123 +63,244 @@ window.onload = function() {
             var i = json.packet.move.row;
 			var j = json.packet.move.column;
 			var color = json.packet.player_id;
-			//updateGameTree(json.mcts_result);
+			root = json.mcts_result;
+			root.children.forEach(collapse);
+			update(root);
 			gameboard[i][j] = color;
 			drawnodes(i, j, color);
 			if(json.color != usr) {
 				chance = true;
-				document.getElementById("status").innerHTML = "Your turn.";
 			}
 		} else if (json.packet.cmd == 1001) {
-			
-        } else {
-        	if (json.type == 'second-client') {
-        		document.getElementById("status").innerHTML = "White Stones. You play second.";
-        		document.getElementById("stones").innerHTML = "WHITE";
-        		usr = -usr;
-        		chance = false;
-        	}
-        	else {
-        		if(json.type == 'winner') {
-        			document.getElementById("status").style.color = "#C2185B";
-        			var i = json.data1;
-					var j = json.data2;
-					var color = json.color;
-					gameboard[i][j] = json.color;
-					drawnodes(i, j, color);
-        			if(json.color == 1) {
-        				document.getElementById("status").innerHTML = "Black stones player wins";	
-        			}
-        			else {
-        				document.getElementById("status").innerHTML = "White stones player wins";
-        			}
-        			disableScreen();
-        		}
-        		else {
-		        	if (json.type === 'history') {
-		        		for (var i = 0; i < json.data.length; i++) {
-		        			for (var k = 0; k < json.data[i].length; k++) {
-		            			var ro = json.data[i][k].data1;
-		            			var co = json.data[i][k].data2;
-		            			gameboard[ro][co] = json.data[i][k].color;
-								drawnodes(json.data[i][k].data1, json.data[i][k].data2, json.data[i][k].color);
-							}
-						}
-		        	}
-		    		else {
-		    			if(json.type == 'more-clients') {
-		    				document.getElementById("more-client").innerHTML = "Just Watch..";
-		    				document.getElementById("status").style.color = "white";
-		    				document.getElementById("stones").style.color = "white";
-		    				disableScreen();
-		    			}
-		    			else {
-		    				if(json.type == 'chance'){
-		    					chance = true;
-		    				}
-		    				else{
-		    					if(json.type == 'close-win') {
-		    						if(json.color == 0) {
-				        				document.getElementById("status").style.color = "#C2185B";
-				        				document.getElementById("status").innerHTML = "White stones player wins";
-				        				disableScreen();
-				        			}
-				        			if(json.color == 1) {
-				        				document.getElementById("status").style.color = "#C2185B";
-		    							document.getElementById("status").innerHTML = "Black stones player wins";
-				        				disableScreen();
-				        			}
-		    					}
-		    					else
-		    						console.log('Hmm..., I\'ve never seen JSON like this: ', json);
-		    				}
-		    			}
-		            }
-		        }
-        	}
+			clearBoard();
+			var canvas = document.getElementById('gameboard');
+			var context = canvas.getContext('2d');
+			context.clearRect(0, 0, canvas.width, canvas.height);
+			chance = true;
+			initalize_area();
         }
-    };
+    };	
 	
-	function updateGameTree(mcts_result) {
-		var svg = d3.select('svg');
-	    var width = +svg.attr("width");
-	    var height = +svg.attr("height");
-	    var g = svg.append("g").attr("transform", "translate(40, 0)");
-		var tree = d3.tree().size([height - 400, width - 160]);
-		const root = d3.hierarchy(mcts_result);
-		
-		const link = g.append("g")
-    		.attr("fill", "none")
-    		.attr("stroke", "#555")
-    		.attr("stroke-opacity", 0.4)
-    		.attr("stroke-width", 1.5)
-  			.selectAll("path")
-    		.data(root.links())
-    		.join("path")
-      		.attr("d", d3.linkHorizontal()
-          		.x(d => d.y)
-          		.y(d => d.x));
-  
-  		const node = g.append("g")
-      		.attr("stroke-linejoin", "round")
-      		.attr("stroke-width", 3)
-    		.selectAll("g")
-    		.data(root.descendants())
-    		.join("g")
-      		.attr("transform", d => `translate(${d.y},${d.x})`);
+	var i = 0,
+    duration = 750,
+    rectW = 60,
+    rectH = 30;
 
-  		node.append("circle")
-      		.attr("fill", d => d.children ? "#555" : "#999")
-      		.attr("r", 2.5);
+var tree = d3.layout.tree().nodeSize([70, 40]);
+var diagonal = d3.svg.diagonal()
+    .projection(function (d) {
+    return [d.x + rectW / 2, d.y + rectH / 2];
+});
 
-  		node.append("text")
-      		.attr("dy", "0.31em")
-      		.attr("x", d => d.children ? -6 : 6)
-      		.attr("text-anchor", d => d.children ? "end" : "start")
-      		.text(d => d.data.name)
-    		.clone(true).lower()
-      		.attr("stroke", "white");
+var svg = d3.select("#body").append("svg").attr("width", 2000).attr("height", 1000)
+    .call(zm = d3.behavior.zoom().scaleExtent([1,3]).on("zoom", redraw)).append("g")
+    .attr("transform", "translate(" + 350 + "," + 20 + ")");
+
+//necessary so that zoom knows where to zoom and unzoom from
+zm.translate([350, 20]);
+
+function collapse(d) {
+    if (d.children) {
+        d._children = d.children;
+        d._children.forEach(collapse);
+        d.children = null;
     }
+}
+
+root.children.forEach(collapse);
+
+d3.select("#body").style("height", "800px");
+
+function roundTo(n, digits) {
+    var negative = false;
+    if (digits === undefined) {
+        digits = 0;
+    }
+        if( n < 0) {
+        negative = true;
+      n = n * -1;
+    }
+    var multiplicator = Math.pow(10, digits);
+    n = parseFloat((n * multiplicator).toFixed(11));
+    n = (Math.round(n) / multiplicator).toFixed(2);
+    if( negative ) {    
+        n = (n * -1).toFixed(2);
+    }
+    return n;
+}
+
+String.prototype.format = function(args) {
+    var result = this;
+    if (arguments.length > 0) {    
+        if (arguments.length == 1 && typeof (args) == "object") {
+            for (var key in args) {
+                if(args[key]!=undefined){
+                    var reg = new RegExp("({" + key + "})", "g");
+                    result = result.replace(reg, args[key]);
+                }
+            }
+        }
+        else {
+            for (var i = 0; i < arguments.length; i++) {
+                if (arguments[i] != undefined) {
+                    var reg = new RegExp("({)" + i + "(})", "g");
+                    result = result.replace(reg, arguments[i]);
+             }
+          }
+       }
+   }
+   return result;
+}
+
+function update(source) {
+	root.x0 = 0;
+	root.y0 = height / 2;
+
+    // Compute the new tree layout.
+    var nodes = tree.nodes(root).reverse(),
+        links = tree.links(nodes);
+
+    // Normalize for fixed-depth.
+    nodes.forEach(function (d) {
+        d.y = d.depth * 180;
+    });
+
+    // Update the nodes…
+    var node = svg.selectAll("g.node")
+        .data(nodes, function (d) {
+        return d.id || (d.id = ++i);
+    });
+
+    // Enter any new nodes at the parent's previous position.
+    var nodeEnter = node.enter().append("g")
+        .attr("class", "node")
+        .attr("transform", function (d) {
+        return "translate(" + source.x0 + "," + source.y0 + ")";
+    })
+        .on("click", click);
+
+    nodeEnter.append("rect")
+        .attr("width", rectW)
+        .attr("height", rectH)
+        .attr("stroke", "black")
+        .attr("stroke-width", 1)
+        .style("fill", function (d) {
+        return d._children ? "lightsteelblue" : "#fff";
+    });
+
+    nodeEnter.append("text")
+        .attr("x", rectW / 2)
+        .attr("y", rectH / 2)
+        .attr("dy", ".35em")
+        .attr("text-anchor", "middle")
+        .text(function (d) {
+		var s = "[" + d.name + "] {0}";
+        return s.format(roundTo(d.value, 1));
+    });
+
+    // Transition nodes to their new position.
+    var nodeUpdate = node.transition()
+        .duration(duration)
+        .attr("transform", function (d) {
+        return "translate(" + d.x + "," + d.y + ")";
+    });
+
+    nodeUpdate.select("rect")
+        .attr("width", rectW)
+        .attr("height", rectH)
+        .attr("stroke", "black")
+        .attr("stroke-width", 1)
+        .style("fill", function (d) {
+        return d._children ? "lightsteelblue" : "#fff";
+    });
+
+    nodeUpdate.select("text")
+        .style("fill-opacity", 1);
+
+    // Transition exiting nodes to the parent's new position.
+    var nodeExit = node.exit().transition()
+        .duration(duration)
+        .attr("transform", function (d) {
+        return "translate(" + source.x + "," + source.y + ")";
+    })
+        .remove();
+
+    nodeExit.select("rect")
+        .attr("width", rectW)
+        .attr("height", rectH)
+    .attr("stroke", "black")
+        .attr("stroke-width", 1);
+
+    nodeExit.select("text");
+
+    // Update the links…
+    var link = svg.selectAll("path.link")
+        .data(links, function (d) {
+        return d.target.id;
+    });
+
+    // Enter any new links at the parent's previous position.
+    link.enter().insert("path", "g")
+        .attr("class", "link")
+        .attr("x", rectW / 2)
+        .attr("y", rectH / 2)
+        .attr("d", function (d) {
+        var o = {
+            x: source.x0,
+            y: source.y0
+        };
+        return diagonal({
+            source: o,
+            target: o
+        });
+    });
+
+    // Transition links to their new position.
+    link.transition()
+        .duration(duration)
+        .attr("d", diagonal);
+
+    // Transition exiting nodes to the parent's new position.
+    link.exit().transition()
+        .duration(duration)
+        .attr("d", function (d) {
+        var o = {
+            x: source.x,
+            y: source.y
+        };
+        return diagonal({
+            source: o,
+            target: o
+        });
+    })
+        .remove();
+
+    // Stash the old positions for transition.
+    nodes.forEach(function (d) {
+        d.x0 = d.x;
+        d.y0 = d.y;
+    });
+}
+
+// Toggle children on click.
+function click(d) {
+    if (d.children) {
+        d._children = d.children;
+        d.children = null;
+    } else {
+        d.children = d._children;
+        d._children = null;
+    }
+    update(d);
+}
+
+//Redraw for zoom
+function redraw() {
+  //console.log("here", d3.event.translate, d3.event.scale);
+  svg.attr("transform",
+      "translate(" + d3.event.translate + ")"
+      + " scale(" + d3.event.scale + ")");
+}
 
     function disableScreen() {
 	    var div= document.createElement("div");
@@ -166,8 +309,8 @@ window.onload = function() {
 	}
 
     function initalize_area() {
-		//for(var i=0; i<19; i++) {
 		for(var i=0; i<10; i++) {
+			context.beginPath();
 			horizontaldraw(i);
 			verticaldraw(i);
 			context.strokeStyle = "#6D6E70";
@@ -178,27 +321,20 @@ window.onload = function() {
 	function horizontaldraw(i) {
 		context.moveTo(10 + 20 * i, 10);
 		context.lineTo(10 + 20 * i, 190);
-		//context.moveTo(20 + 40 * i, 20);
-		//context.lineTo(20 + 40 * i, 740);
 	}
-
 
 	function verticaldraw(i) {
 		context.moveTo(10, 10 + 20 * i);
 		context.lineTo(190, 10 + 20 * i);
-		//context.moveTo(20, 20 + 40 * i);
-		//context.lineTo(740, 20 + 40 * i);
 	}
 
 	function drawnodes(i, j, user) {
 		var canvas = document.getElementById('gameboard');
 		var context = canvas.getContext('2d');
 		context.beginPath();
-		context.arc(10 + 20 * i, 10 + 20 * j, 10, 0, 2 * Math.PI);
-		//context.arc(20 + 40 * i, 20 + 40 * j, 10, 0, 2 * Math.PI);
+		context.arc(10 + 20 * i, 10 + 20 * j, 10, 0, 2 * Math.PI);		
+		var gradient = context.createRadialGradient(10 + 20 * i, 10 + 20 * j, 0, 10 + 20 * i, 10 + 20 * j, 12);
 		context.closePath();
-		var gradient = context.createRadialGradient(10 + 20 * i, 10 + 20 * j, 0, 10 + 20 * i, 10 + 20 * j, 12)
-		//var gradient = context.createRadialGradient(20 + 40 * i, 20 + 40 * j, 0, 20 + 40 * i, 20 + 40 * j, 12)
 		if (user == 1) {
 			gradient.addColorStop(0, 'black');
 			gradient.addColorStop(1, 'black');
@@ -218,9 +354,6 @@ window.onload = function() {
 		
 		var i = Math.floor(x / 20);
 		var j = Math.floor(y / 20);
-		
-		//var i = Math.floor(x / 40);
-		//var j = Math.floor(y / 40);
 			
 		if (gameboard[i][j] == 0) {
 			// send it to server
@@ -229,11 +362,10 @@ window.onload = function() {
 					cmd: 1002,
 					move: { row: i, column: j }
 				}				
-			};
-			connection.send(JSON.stringify(data));
+			};			
 			chance = false;
 			drawnodes(i, j, 0);
-			document.getElementById("status").innerHTML = "Not your turn.";
+			connection.send(JSON.stringify(data));
 		}
 	};
 };

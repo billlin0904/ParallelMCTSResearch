@@ -49,10 +49,6 @@ public:
 #endif
 
 private:
-    constexpr double DefaultUCB() const noexcept {
-        return std::sqrt(2.0);
-    }
-
     double GetUCB(const node_ptr_type& node) const;
 
 	node_ptr_type GetBestChild(const node_ptr_type& parent) const;
@@ -69,11 +65,10 @@ private:
 #if ENABLE_JSON
 	friend void WriteChildren(const MCTS& mcts, Value & parent_node, node_ptr_type parent, Document& document) {
 		Value children_node(rapidjson::kArrayType);
-
 		for (const auto &children : parent->GetChildren()) {
 			Value object(kObjectType);
 			object.AddMember("visits", children->GetVisits(), document.GetAllocator());
-            object.AddMember("value", children->GetScore(), document.GetAllocator());
+            object.AddMember("value", children->GetUCB(), document.GetAllocator());
             object.AddMember("state", children->GetState().ToString(), document.GetAllocator());
             object.AddMember("name", children->GetLastMove().ToString(), document.GetAllocator());
 			if (children->IsLeaf()) {
@@ -117,14 +112,10 @@ MCTS<State, Move>::MCTS(const children_vector_type &children)
 #if ENABLE_JSON
 template <typename State, typename Move>
 void MCTS<State, Move>::WriteTo(Document& document) const {
-    Value parent_node(kObjectType);
-
-    parent_node.AddMember("visits", root_->GetVisits(), document.GetAllocator());
-    parent_node.AddMember("value", root_->GetScore(), document.GetAllocator());
+    Value parent_node(kObjectType);    
+    parent_node.AddMember("value", GetUCB(root_), document.GetAllocator());
     parent_node.AddMember("name", root_->GetLastMove().ToString(), document.GetAllocator());
-    parent_node.AddMember("max_depth", GetMaxDepth(), document.GetAllocator());
     parent_node.AddMember("state", root_->GetState().ToString(), document.GetAllocator());
-
     WriteChildren(*this, parent_node, root_, document);
     document.AddMember("mcts_result", parent_node, document.GetAllocator());
 }
