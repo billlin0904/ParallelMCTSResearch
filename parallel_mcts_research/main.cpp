@@ -8,7 +8,7 @@
 
 #include "rng.h"
 #include "mcts.h"
-#include "websocket/websocket.h"
+#include "websocket/websocket_client.h"
 #include "websocket/websocket_server.h"
 
 using namespace mcts;
@@ -352,7 +352,7 @@ public:
 
     std::string Turn() {
         std::cout << "Server:" << std::endl << *state_ << std::endl;
-        auto move = ai_->Search(80, 3000);
+        auto move = ai_->Search(100, 3000);
         state_->ApplyMove(move);
         std::cout << "Server move: " << move.ToString() << std::endl << *state_ << std::endl;
         return Encoder::Turn(move, *state_, *ai_, room_id_, round_id_);
@@ -389,6 +389,7 @@ public:
 
     void OnConnected(std::shared_ptr<websocket::Session> s) override {
         s->Receive();
+        std::cout << "Seesion id: " << s->GetSessionID() << " connected!" << std::endl;
     }
 
     void OnDisconnected(std::shared_ptr<websocket::Session> s) override {
@@ -483,19 +484,19 @@ public:
         , round_id_(0) {
     }
 
-    void OnConnected(std::shared_ptr<websocket::WebSocket> s) override {
+    void OnConnected(std::shared_ptr<websocket::WebSocketClient> s) override {
         state_.reset(new GomokuGameState());
         s->Send(Encoder::EnterRoom(*state_, room_id_, round_id_));
         s->Receive();
     }
 
-    void OnDisconnected(std::shared_ptr<websocket::WebSocket>) override {
+    void OnDisconnected(std::shared_ptr<websocket::WebSocketClient>) override {
     }
 
-    void OnSend(std::shared_ptr<websocket::WebSocket>) override {
+    void OnSend(std::shared_ptr<websocket::WebSocketClient>) override {
     }
 
-    void OnReceive(std::shared_ptr<websocket::WebSocket> s, const std::string& str) override {
+    void OnReceive(std::shared_ptr<websocket::WebSocketClient> s, const std::string& str) override {
         Document document;
         document.Parse(str);
 
@@ -519,11 +520,11 @@ public:
         std::cout << "Client: " << room_id_ << " - " << round_id_ << std::endl << *state_ << std::endl;
         s->Receive();
     }
-    void OnError(std::shared_ptr<websocket::WebSocket>, websocket::OperatorError, boost::system::error_code) override {
+    void OnError(std::shared_ptr<websocket::WebSocketClient>, websocket::OperatorError, boost::system::error_code) override {
 
     }
 private:
-    void NewRoundOrEnterRoom(std::shared_ptr<websocket::WebSocket> s, CommandID cmd) {
+    void NewRoundOrEnterRoom(std::shared_ptr<websocket::WebSocketClient> s, CommandID cmd) {
         if (cmd == CommandID::START_ROUND) {
             assert(state_->IsTerminal());
             state_.reset(new GomokuGameState());
@@ -534,7 +535,7 @@ private:
         s->Send(Encoder::Turn(move, *state_, *ai_, room_id_, round_id_));
     }
 
-    void Turn(std::shared_ptr<websocket::WebSocket> s, const Value &packet) {
+    void Turn(std::shared_ptr<websocket::WebSocketClient> s, const Value &packet) {
         GomokuGameMove move(packet["move"]["row"].GetInt(), packet["move"]["column"].GetInt());
         state_->ApplyMove(move);
         ai_->SetOpponentMove(move);

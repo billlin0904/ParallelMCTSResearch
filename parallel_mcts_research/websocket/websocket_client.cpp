@@ -1,14 +1,14 @@
-#include "websocket.h"
+#include "websocket_client.h"
 
 namespace websocket {
 
 namespace ssl = boost::asio::ssl;
 namespace websocket = boost::beast::websocket;
 
-const int WebSocket::CONNECT_TIMEOUT = 5;
-const int WebSocket::MAX_SEND_QUEUE_SIZE = 128;
+const int WebSocketClient::CONNECT_TIMEOUT = 5;
+const int WebSocketClient::MAX_SEND_QUEUE_SIZE = 128;
 
-WebSocket::WebSocket(boost::asio::io_service& _ios, const std::string &_host, const std::string &_port, WebSocketCallback* callback)
+WebSocketClient::WebSocketClient(boost::asio::io_service& _ios, const std::string &_host, const std::string &_port, WebSocketCallback* callback)
     : resolver_(_ios)
     , deadline_(_ios)
     , host_(_host)
@@ -16,16 +16,16 @@ WebSocket::WebSocket(boost::asio::io_service& _ios, const std::string &_host, co
     , buffer_(new boost::beast::multi_buffer())
     , send_queue_(MAX_SEND_QUEUE_SIZE)
     , strand_(_ios)
-	, callback_(callback) {
+    , callback_(callback) {
 }
 
-WebSocket::~WebSocket() {
+WebSocketClient::~WebSocketClient() {
 }
 
-void WebSocket::SSLHandshake()  {
+void WebSocketClient::SSLHandshake()  {
 }
 
-void WebSocket::Connect() {
+void WebSocketClient::Connect() {
     connecting_ = true;
     closing_ = false;
     timeouted_ = false;
@@ -37,14 +37,14 @@ void WebSocket::Connect() {
     SetTimeout(CONNECT_TIMEOUT);
 
     resolver_.async_resolve({host_, port_},
-                           std::bind(
-                               &WebSocket::onResolve,
-                               shared_from_this(),
-                               std::placeholders::_1,
-                               std::placeholders::_2));
+                            std::bind(
+                                &WebSocketClient::onResolve,
+                                shared_from_this(),
+                                std::placeholders::_1,
+                                std::placeholders::_2));
 }
 
-void WebSocket::DoWrite(const std::string & send_message) {
+void WebSocketClient::DoWrite(const std::string & send_message) {
     if (send_queue_.full()) {
         return;
     }
@@ -57,12 +57,12 @@ void WebSocket::DoWrite(const std::string & send_message) {
     }
 }
 
-void WebSocket::Send(const std::string &message) {
+void WebSocketClient::Send(const std::string &message) {
     auto buffer(message);
-    strand_.post(std::bind(&WebSocket::DoWrite, this, buffer));
+    strand_.post(std::bind(&WebSocketClient::DoWrite, this, buffer));
 }
 
-void WebSocket::OnConnecting(boost::system::error_code ec)  {
+void WebSocketClient::OnConnecting(boost::system::error_code ec)  {
     if (ec) {
         callback_->OnError(shared_from_this(), OperatorError::CONNECT_ERROR, ec);
         deadline_.cancel();
@@ -71,7 +71,7 @@ void WebSocket::OnConnecting(boost::system::error_code ec)  {
     DoHandshake();
 }
 
-void WebSocket::OnHandshake(boost::system::error_code ec) {
+void WebSocketClient::OnHandshake(boost::system::error_code ec) {
     if (ec) {
         callback_->OnError(shared_from_this(), OperatorError::HANDSHARK_ERROR, ec);
         return;
@@ -82,7 +82,7 @@ void WebSocket::OnHandshake(boost::system::error_code ec) {
     SetTimeout(TIME_INF);
 }
 
-void WebSocket::OnWrite(boost::system::error_code ec, std::size_t) {
+void WebSocketClient::OnWrite(boost::system::error_code ec, std::size_t) {
     if (ec) {
         callback_->OnError(shared_from_this(), OperatorError::WRITE_ERROR, ec);
         return;
@@ -96,7 +96,7 @@ void WebSocket::OnWrite(boost::system::error_code ec, std::size_t) {
     callback_->OnSend(shared_from_this());
 }
 
-void WebSocket::OnRead(boost::system::error_code ec, std::size_t) {
+void WebSocketClient::OnRead(boost::system::error_code ec, std::size_t) {
     if (ec) {
         callback_->OnError(shared_from_this(), OperatorError::READ_ERROR, ec);
         return;
@@ -106,7 +106,7 @@ void WebSocket::OnRead(boost::system::error_code ec, std::size_t) {
     callback_->OnReceive(shared_from_this(), data);
 }
 
-void WebSocket::onClosed(boost::beast::error_code) {
+void WebSocketClient::onClosed(boost::beast::error_code) {
 #if ENABLE_SSL
     ForceClose();
 #endif
@@ -116,7 +116,7 @@ void WebSocket::onClosed(boost::beast::error_code) {
     send_queue_.clear();
 }
 
-void WebSocket::OnSSLHandshake(boost::system::error_code ec) {
+void WebSocketClient::OnSSLHandshake(boost::system::error_code ec) {
     if (ec) {
         callback_->OnError(shared_from_this(), OperatorError::HANDSHARK_ERROR, ec);
         return;
@@ -124,17 +124,17 @@ void WebSocket::OnSSLHandshake(boost::system::error_code ec) {
     SSLHandshake();
 }
 
-void WebSocket::SetTimeout(int timeout_seconds) {
+void WebSocketClient::SetTimeout(int timeout_seconds) {
     if (timeout_seconds == TIME_INF) {
         deadline_.expires_at(boost::posix_time::pos_infin);
     } else {
         deadline_.expires_from_now(boost::posix_time::seconds(timeout_seconds));
         timeouted_ = false;
-        deadline_.async_wait(std::bind(&WebSocket::onDeadline, shared_from_this()));
+        deadline_.async_wait(std::bind(&WebSocketClient::onDeadline, shared_from_this()));
     }
 }
 
-void WebSocket::onResolve(boost::system::error_code ec, tcp::resolver::iterator result) {
+void WebSocketClient::onResolve(boost::system::error_code ec, tcp::resolver::iterator result) {
     if (ec) {
         callback_->OnError(shared_from_this(), OperatorError::CONNECT_ERROR, ec);
         return;
@@ -142,7 +142,7 @@ void WebSocket::onResolve(boost::system::error_code ec, tcp::resolver::iterator 
     DoConnect(result);
 }
 
-void WebSocket::onDeadline() {
+void WebSocketClient::onDeadline() {
     if (closing_) {
         return;
     }
@@ -150,19 +150,19 @@ void WebSocket::onDeadline() {
         deadline_.expires_at(boost::posix_time::pos_infin);
         Disconnect();
     }
-    deadline_.async_wait(std::bind(&WebSocket::onDeadline, shared_from_this()));
+    deadline_.async_wait(std::bind(&WebSocketClient::onDeadline, shared_from_this()));
 }
 
-class NoSSLWebSocket : public WebSocket {
+class NoSSLWebSocket : public WebSocketClient {
     std::unique_ptr<websocket::stream<tcp::socket>> ws_;
 
 protected:
     void DoHandshake() override {
         ws_->async_handshake(host_, "/",
-                            std::bind(
-                                &NoSSLWebSocket::OnHandshake,
-                                shared_from_this(),
-                                std::placeholders::_1));
+                             std::bind(
+                                 &NoSSLWebSocket::OnHandshake,
+                                 shared_from_this(),
+                                 std::placeholders::_1));
     }
 
     void DoConnect(tcp::resolver::iterator result) override {
@@ -179,10 +179,10 @@ protected:
         ws_->async_write(
                     boost::asio::buffer(&send_queue_.front()[0], send_queue_.front().size()),
                 strand_.wrap(std::bind(
-                                &NoSSLWebSocket::OnWrite,
-                                shared_from_this(),
-                                std::placeholders::_1,
-                                std::placeholders::_2)));
+                                 &NoSSLWebSocket::OnWrite,
+                                 shared_from_this(),
+                                 std::placeholders::_1,
+                                 std::placeholders::_2)));
     }
 #if ENABLE_SSL
     void ForceClose() override {
@@ -211,15 +211,19 @@ protected:
 #endif
 public:
     explicit NoSSLWebSocket(boost::asio::io_service& _ios, const std::string &host, const std::string &port, WebSocketCallback* callback)
-        : WebSocket(_ios, host, port, callback)
+        : WebSocketClient(_ios, host, port, callback)
         , ws_(new websocket::stream<tcp::socket>(_ios)) {
-        ws_->binary(true);
+        InitialStream(*ws_);
     }
 
     ~NoSSLWebSocket() override {
 #if ENABLE_SSL
         ForceClose();
 #endif
+    }
+
+    void SetBinaryFormat(bool enable = true) {
+        ws_->binary(enable);
     }
 
     void Receive() override {
@@ -236,9 +240,9 @@ public:
         SetTimeout(TIME_INF);
         closing_ = true;
         ws_->async_close(websocket::close_code::normal,
-                        std::bind(&NoSSLWebSocket::onClosed,
-                                  shared_from_this(),
-                                  std::placeholders::_1));
+                         std::bind(&NoSSLWebSocket::onClosed,
+                                   shared_from_this(),
+                                   std::placeholders::_1));
     }
 };
 
@@ -249,10 +253,10 @@ class SSLWebSocket : public WebSocket {
 
     void SSLHandshake() override {
         ws_->async_handshake(host_, "/",
-                            std::bind(
-                                &SSLWebSocket::OnHandshake,
-                                shared_from_this(),
-                                std::placeholders::_1));
+                             std::bind(
+                                 &SSLWebSocket::OnHandshake,
+                                 shared_from_this(),
+                                 std::placeholders::_1));
     }
 
 protected:
@@ -279,10 +283,10 @@ protected:
         ws_->async_write(
                     boost::asio::buffer(&send_queue_.front()[0], send_queue_.front().size()),
                 strand_.wrap(std::bind(
-                                &SSLWebSocket::OnWrite,
-                                shared_from_this(),
-                                std::placeholders::_1,
-                                std::placeholders::_2)));
+                                 &SSLWebSocket::OnWrite,
+                                 shared_from_this(),
+                                 std::placeholders::_1,
+                                 std::placeholders::_2)));
     }
 
     void DoShutdown() override {
@@ -318,11 +322,15 @@ public:
         : WebSocket(_ios, host, port)
         , ssl_context_(ssl::context::tlsv12_client)
         , ws_(new websocket::stream<ssl::stream<tcp::socket>>(_ios, ssl_context_)) {
-        ws_->binary(true);
+        InitialStream(*ws_);
     }
 
     ~SSLWebSocket() override {
         ForceClose();
+    }
+
+    void SetBinaryFormat(bool enable = true) {
+        ws_->binary(enable);
     }
 
     void Receive() override {
@@ -339,17 +347,17 @@ public:
         SetTimeout(TIME_INF);
         closing_ = true;
         ws_->async_close(websocket::close_code::normal,
-                        std::bind(&SSLWebSocket::onClosed,
-                                  shared_from_this(),
-                                  std::placeholders::_1));
+                         std::bind(&SSLWebSocket::onClosed,
+                                   shared_from_this(),
+                                   std::placeholders::_1));
     }
 };
 #endif
-std::shared_ptr<WebSocket> WebSocket::MakeSocket(const std::string &scheme,
-	const std::string &host,
-	const std::string &port, 
-	boost::asio::io_service& _ios,
-	WebSocketCallback* callback) {
+std::shared_ptr<WebSocketClient> WebSocketClient::MakeSocket(const std::string &scheme,
+                                                             const std::string &host,
+                                                             const std::string &port,
+                                                             boost::asio::io_service& _ios,
+                                                             WebSocketCallback* callback) {
 #if ENABLE_SSL
     if (scheme == "wss") {
         return std::make_shared<SSLWebSocket>(_ios, host, port, callback);

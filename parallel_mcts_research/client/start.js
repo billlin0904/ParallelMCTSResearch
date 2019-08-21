@@ -40,7 +40,8 @@ var root = {
 window.onload = function() {
     var canvas = document.getElementById("gameboard");
 	var context = canvas.getContext('2d');	
-    var connection = new WebSocket('ws://127.0.0.1:9090');
+    //var connection = new WebSocket('ws://127.0.0.1:9090');
+    var connection = new WebSocket('ws://10.28.24.103:9090');
     	
     connection.onopen = function () {
 		connection.send(JSON.stringify({packet: { cmd: 1000 } }));
