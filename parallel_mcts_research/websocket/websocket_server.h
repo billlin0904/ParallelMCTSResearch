@@ -1,9 +1,7 @@
 #pragma once
 
 #include <memory>
-#include <string>
 #include <thread>
-#include <exception>
 #include <atomic>
 #include <unordered_map>
 
@@ -39,17 +37,6 @@ protected:
 };
 
 int32_t NewSessionID() noexcept;
-
-class Exception : public std::exception {
-public:
-    explicit Exception(boost::system::error_code ec);
-
-    virtual ~Exception() = default;
-
-    const char * what() const noexcept override;
-private:
-    std::string message_;
-};
 
 class Session : public std::enable_shared_from_this<Session> {
     int32_t session_id_;

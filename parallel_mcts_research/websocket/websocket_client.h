@@ -18,21 +18,16 @@ namespace websocket {
 
 class WebSocketClient;
 
-enum OperatorError {
-    RESOLVE_ERROR,
-    HANDSHARK_ERROR,
-    CONNECT_ERROR,
-    READ_ERROR,
-    WRITE_ERROR,
-    TIMEOUT_ERROR,
-};
-
-struct WebSocketCallback {
+class WebSocketCallback {
+public:
+	virtual ~WebSocketCallback() = default;
     virtual void OnConnected(std::shared_ptr<WebSocketClient>) = 0;
     virtual void OnDisconnected(std::shared_ptr<WebSocketClient>) = 0;
     virtual void OnSend(std::shared_ptr<WebSocketClient>) = 0;
     virtual void OnReceive(std::shared_ptr<WebSocketClient>, const std::string &) = 0;
-    virtual void OnError(std::shared_ptr<WebSocketClient>, OperatorError, boost::system::error_code) = 0;
+    virtual void OnError(std::shared_ptr<WebSocketClient>, const Exception &) = 0;
+protected:
+	WebSocketCallback() = default;
 };
 
 using tcp = boost::asio::ip::tcp;

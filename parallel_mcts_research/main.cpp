@@ -104,6 +104,9 @@ public:
     }
 
     void CheckTerminal() noexcept {
+		if (winner_exists_) {
+			return;
+		}
         is_terminal_ = remain_move_ == 0;
     }
 
@@ -227,28 +230,6 @@ private:
     std::vector<std::vector<int8_t>> board_;
 };
 
-#if 0
-static GomokuGameMove ParallelSearch(int32_t evaluate_count, int32_t rollout_limit) {
-    std::vector<MCTS<GomokuGameState, GomokuGameMove>> mcst;
-
-    mcst.resize(std::thread::hardware_concurrency());
-
-    auto futus = ParallelFor(mcst.size(), [&mcst, evaluate_count, rollout_limit](int32_t i) {
-        mcst[i].Search(evaluate_count, rollout_limit);
-    });
-
-    for (auto& f : futus) {
-        f.get();
-    }
-
-    std::vector<MCTS<GomokuGameState, GomokuGameMove>::node_ptr_type> root;
-    for (auto& m : mcst) {
-        root.push_back(m.GetCurrentNode());
-    }
-    return GomokuGameMove();
-}
-#endif
-
 enum CommandID {
     ENTER_ROOM = 1000,
     START_ROUND,
@@ -308,6 +289,26 @@ struct Encoder {
         mcts.WriteTo(document);
         return GetJsonString(document);
     }
+
+	static std::string Turn(const GomokuGameMove& move,
+		const GomokuGameState& state,
+		int32_t player_id,
+		int32_t room_id,
+		int32_t round_id) {
+		Document document;
+		Value game_move(kObjectType);
+		game_move.AddMember("row", move.row, document.GetAllocator());
+		game_move.AddMember("column", move.column, document.GetAllocator());
+		Value packet(kObjectType);
+		packet.AddMember("cmd", CommandID::TURN, document.GetAllocator());
+		packet.AddMember("room_id", room_id, document.GetAllocator());
+		packet.AddMember("round_id", round_id, document.GetAllocator());
+		packet.AddMember("player_id", player_id, document.GetAllocator());
+		packet.AddMember("move", game_move, document.GetAllocator());
+		document.SetObject();
+		document.AddMember("packet", packet, document.GetAllocator());
+		return GetJsonString(document);
+	}
 };
 
 static int32_t GetRoundID() noexcept {
@@ -328,46 +329,68 @@ public:
 		, server_(server) {
     }
 
-    void EnterRoom(int32_t session_id) {
-		if (!players_.empty()) {
+    void EnterRoom(int32_t session_id, bool is_watch) {
+		if (players_.empty() && !is_watch) {
 			players_.insert(session_id);
 			server_->SentTo(session_id, Encoder::EnterRoom(*state_, room_id_, round_id_));
 		} else {
 			watchers_.insert(session_id);
-			SendWatchers(Encoder::EnterRoom(*state_, room_id_, round_id_));
+			BoardcastWatchers(Encoder::EnterRoom(*state_, room_id_, round_id_));
 		}		
     }
 
-    std::string NewRound() {
+    void NewRound(int32_t session_id) {
         ai_.reset(new MCTS<GomokuGameState, GomokuGameMove>());
         state_.reset(new GomokuGameState());
         round_id_ = GetRoundID();
-        return Encoder::StartRound(*state_, room_id_, round_id_);
+
+		auto msg = Encoder::StartRound(*state_, room_id_, round_id_);
+		server_->SentTo(session_id, msg);
+		BoardcastWatchers(msg);
     }
 
     void SetOpponentMove(const GomokuGameMove &move) {
         state_->ApplyMove(move);
         ai_->SetOpponentMove(move);
+
+		auto msg = Encoder::Turn(move, *state_, 0, room_id_, round_id_);
+		BoardcastWatchers(msg);
     }
 
-    std::string Turn() {
+    void Turn(int32_t session_id) {
         std::cout << "Server:" << std::endl << *state_ << std::endl;
-        auto move = ai_->Search(100, 3000);
+#ifdef _DEBUG        
+		auto move = ai_->Search(10, 300);
+#else
+		auto move = ai_->Search(100, 3000);
+#endif
         state_->ApplyMove(move);
         std::cout << "Server move: " << move.ToString() << std::endl << *state_ << std::endl;
-        return Encoder::Turn(move, *state_, *ai_, room_id_, round_id_);
+
+		auto msg = Encoder::Turn(move, *state_, *ai_, room_id_, round_id_);
+		server_->SentTo(session_id, msg);
+		BoardcastWatchers(msg);
     }
 
     bool IsTerminal() const {
         return state_->IsTerminal();
     }
 
-	void LeaveWatcher(int32_t session_id) {
+	bool IsPlayerTurn(int32_t session_id) const {
+		return players_.find(session_id) != players_.end();
+	}
+
+	int32_t GetPlayerCount() const {
+		return players_.size();
+	}
+
+	void LeavePlayer(int32_t session_id) {
+		players_.erase(session_id);
 		watchers_.erase(session_id);
 	}
 
 private:
-	void SendWatchers(const std::string& message) {
+	void BoardcastWatchers(const std::string& message) {
 		for (auto session_id : watchers_) {
 			server_->SentTo(session_id, message);
 		}
@@ -396,11 +419,23 @@ public:
         std::lock_guard<std::mutex> guard{ mutex_ };
         auto itr = session_room_.find(s->GetSessionID());
         if (itr != session_room_.end()) {
-            room_.erase((*itr).second);
-            session_room_.erase(itr);
+			Leave((*itr).second, s->GetSessionID());
         }
         RemoveSession(s);
     }
+
+	void Leave(int32_t room_id, int32_t session_id) {
+		auto itr = room_.find(room_id);
+		if (itr == room_.end()) {
+			return;
+		}
+
+		(*itr).second->LeavePlayer(session_id);
+		if ((*itr).second->GetPlayerCount() == 0) {
+			room_.erase(room_id);
+			session_room_.erase(session_id);
+		}
+	}
 
     void OnSend(std::shared_ptr<websocket::Session>) override {
     }
@@ -422,11 +457,7 @@ public:
 
         switch (cmd) {
         case CommandID::ENTER_ROOM:
-            if (itr == session_room_.end()) {
-                NewRoom(s);
-            } else {
-                EnterRoom(s, (*itr).second);
-            }
+			ProcessEnterRoom(packet, s, itr);
             break;
         case CommandID::TURN:			
             Turn(s, packet, (*itr).second);
@@ -439,37 +470,65 @@ public:
         std::cerr << e.what() << std::endl;
     }
 private:
-    void EnterRoom(const std::shared_ptr<websocket::Session>& s, int32_t room_id) {
+	void ProcessEnterRoom(const Value &packet,
+		const std::shared_ptr<websocket::Session> &s, 
+		std::unordered_map<int32_t, int32_t>::iterator itr) {
+		bool is_watch = false;
+
+		if (packet.HasMember("is_watch")) {
+			is_watch = packet["is_watch"].GetBool();
+		}
+
+		if (is_watch) {
+			if (!session_room_.empty()) {
+				auto itr = session_room_.begin();
+				EnterRoom(s, (*itr).second, is_watch);
+			}			
+		} else {
+			if (itr == session_room_.end()) {
+				NewRoom(s, is_watch);
+			}
+			else {
+				EnterRoom(s, (*itr).second, is_watch);
+			}
+		}
+	}
+
+    void EnterRoom(const std::shared_ptr<websocket::Session>& s, int32_t room_id, bool is_watch) {
         auto itr = room_.find(room_id);
-        if (itr == room_.end()) {
-			(*itr).second->EnterRoom(s->GetSessionID());
+        if (itr != room_.end()) {
+			(*itr).second->EnterRoom(s->GetSessionID(), is_watch);
         }
     }
 
-    void NewRoom(const std::shared_ptr<websocket::Session>& s) {
+	void NewRoom(const std::shared_ptr<websocket::Session>& s, bool is_watch) {
         auto room_id = GetRoomID();
         session_room_[s->GetSessionID()] = room_id;
         std::unique_ptr<GomokuRoom> room(new GomokuRoom(room_id, this));
-        room->NewRound();
-		room->EnterRoom(s->GetSessionID());
+        room->NewRound(s->GetSessionID());
+		room->EnterRoom(s->GetSessionID(), is_watch);
         room_.insert(std::make_pair(room_id, std::move(room)));
     }
 
     void Turn(const std::shared_ptr<websocket::Session> &s, const Value& packet, int32_t room_id) {
         auto itr = room_.find(room_id);
-        if (itr != room_.end()) {
-			if ((*itr).second->IsTerminal()) {
-				s->Send((*itr).second->NewRound());
-				return;
-			}
-            const GomokuGameMove move(packet["move"]["row"].GetInt(), packet["move"]["column"].GetInt());
-            std::cout << "Client move: " << move.ToString() << std::endl;
-            (*itr).second->SetOpponentMove(move);
-            s->Send((*itr).second->Turn());
-			if ((*itr).second->IsTerminal()) {
-				s->Send((*itr).second->NewRound());
-			}
+        if (itr == room_.end()) {
+			return;			
         }
+		if (!(*itr).second->IsPlayerTurn(s->GetSessionID())) {
+			return;
+		}
+		if ((*itr).second->IsTerminal()) {
+			(*itr).second->NewRound(s->GetSessionID());
+			return;
+		}
+		const GomokuGameMove move(packet["move"]["row"].GetInt(), packet["move"]["column"].GetInt());
+		std::cout << "Client move: " << move.ToString() << std::endl;
+		(*itr).second->SetOpponentMove(move);
+		(*itr).second->Turn(s->GetSessionID());
+		if ((*itr).second->IsTerminal()) {
+			(*itr).second->NewRound(s->GetSessionID());
+		}
     }
 
     std::mutex mutex_;
@@ -507,8 +566,6 @@ public:
 
         const auto& packet = document["packet"];
         auto cmd = static_cast<CommandID>(packet["cmd"].GetInt());
-        room_id_ = packet["room_id"].GetInt();
-        round_id_ = packet["round_id"].GetInt();
 
         if (cmd == CommandID::ENTER_ROOM || cmd == CommandID::START_ROUND) {
             NewRoundOrEnterRoom(s, cmd);
@@ -517,30 +574,56 @@ public:
             Turn(s, packet);
         }
 
-        std::cout << "Client: " << room_id_ << " - " << round_id_ << std::endl << *state_ << std::endl;
+		room_id_ = packet["room_id"].GetInt();
+		round_id_ = packet["round_id"].GetInt();
+
+        //std::cout << "Client: " << room_id_ << " - " << round_id_ << std::endl << *state_ << std::endl;
         s->Receive();
     }
-    void OnError(std::shared_ptr<websocket::WebSocketClient>, websocket::OperatorError, boost::system::error_code) override {
-
+    void OnError(std::shared_ptr<websocket::WebSocketClient>, const websocket::Exception &e) override {
+		std::cerr << e.what() << std::endl;
     }
 private:
-    void NewRoundOrEnterRoom(std::shared_ptr<websocket::WebSocketClient> s, CommandID cmd) {
+    void NewRoundOrEnterRoom(const std::shared_ptr<websocket::WebSocketClient>& s, CommandID cmd) {
         if (cmd == CommandID::START_ROUND) {
-            assert(state_->IsTerminal());
-            state_.reset(new GomokuGameState());
-        }
-        ai_.reset(new MCTS<GomokuGameState, GomokuGameMove>());
-        auto move = ai_->Search(80, 400);
-        state_->ApplyMove(move);
-        s->Send(Encoder::Turn(move, *state_, *ai_, room_id_, round_id_));
+			if (round_id_ > 0) {
+				assert(state_->IsTerminal());
+
+				state_.reset(new GomokuGameState());
+
+				ai_.reset(new MCTS<GomokuGameState, GomokuGameMove>());
+#ifdef _DEBUG        
+				auto move = ai_->Search(10, 300);
+#else
+				auto move = ai_->Search(100, 300);
+#endif
+				state_->ApplyMove(move);
+				s->Send(Encoder::Turn(move, *state_, *ai_, room_id_, round_id_));
+			}            
+		}
+		else if (cmd == CommandID::ENTER_ROOM) {
+			state_.reset(new GomokuGameState());
+
+			ai_.reset(new MCTS<GomokuGameState, GomokuGameMove>());
+#ifdef _DEBUG        
+			auto move = ai_->Search(10, 300);
+#else
+			auto move = ai_->Search(100, 3000);
+#endif
+			state_->ApplyMove(move);
+			s->Send(Encoder::Turn(move, *state_, *ai_, room_id_, round_id_));
+		}        
     }
 
-    void Turn(std::shared_ptr<websocket::WebSocketClient> s, const Value &packet) {
+    void Turn(const std::shared_ptr<websocket::WebSocketClient>& s, const Value &packet) {
         GomokuGameMove move(packet["move"]["row"].GetInt(), packet["move"]["column"].GetInt());
         state_->ApplyMove(move);
         ai_->SetOpponentMove(move);
-
-        auto search_move = ai_->Search(80, 400);
+#ifdef _DEBUG        
+		auto search_move = ai_->Search(10, 300);
+#else
+		auto search_move = ai_->Search(100, 3000);
+#endif        
         state_->ApplyMove(search_move);
         s->Send(Encoder::Turn(search_move, *state_, *ai_, room_id_, round_id_));
     }
@@ -556,24 +639,24 @@ int main() {
     server.Bind("0.0.0.0", 9090);
     server.Listen();
 
-    /*
-    boost::asio::io_service ios;
-    std::thread client_thread([&]() {
-        boost::asio::io_service::work work(ios);
-        ios.run();
-    });
-
+#if 1
+	boost::asio::io_service ios;
+	std::thread client_thread([&]() {
+		boost::asio::io_service::work work(ios);
+		ios.run();
+		});
 
     const auto scheme = "ws";
     const auto host = "127.0.0.1";
     const auto port = "9090";
-    auto ws = websocket::WebSocket::MakeSocket(scheme,
-                                               host,
-                                               port,
-                                               ios,
-                                               new GomokuGameClientCallback());
+    auto ws = websocket::WebSocketClient::MakeSocket(
+		scheme,
+        host,
+        port,
+        ios,
+        new GomokuGameClientCallback());
     ws->Connect();
-    */
+#endif
 
     server.Run();
 

@@ -64,7 +64,7 @@ void WebSocketClient::Send(const std::string &message) {
 
 void WebSocketClient::OnConnecting(boost::system::error_code ec)  {
     if (ec) {
-        callback_->OnError(shared_from_this(), OperatorError::CONNECT_ERROR, ec);
+        callback_->OnError(shared_from_this(), Exception(ec));
         deadline_.cancel();
         return;
     }
@@ -73,7 +73,7 @@ void WebSocketClient::OnConnecting(boost::system::error_code ec)  {
 
 void WebSocketClient::OnHandshake(boost::system::error_code ec) {
     if (ec) {
-        callback_->OnError(shared_from_this(), OperatorError::HANDSHARK_ERROR, ec);
+        callback_->OnError(shared_from_this(), Exception(ec));
         return;
     }
     connecting_ = false;
@@ -84,7 +84,7 @@ void WebSocketClient::OnHandshake(boost::system::error_code ec) {
 
 void WebSocketClient::OnWrite(boost::system::error_code ec, std::size_t) {
     if (ec) {
-        callback_->OnError(shared_from_this(), OperatorError::WRITE_ERROR, ec);
+        callback_->OnError(shared_from_this(), Exception(ec));
         return;
     }
     if (!send_queue_.empty()) {
@@ -98,7 +98,7 @@ void WebSocketClient::OnWrite(boost::system::error_code ec, std::size_t) {
 
 void WebSocketClient::OnRead(boost::system::error_code ec, std::size_t) {
     if (ec) {
-        callback_->OnError(shared_from_this(), OperatorError::READ_ERROR, ec);
+        callback_->OnError(shared_from_this(), Exception(ec));
         return;
     }
     auto data = boost::beast::buffers_to_string(buffer_->data());
@@ -118,7 +118,7 @@ void WebSocketClient::onClosed(boost::beast::error_code) {
 
 void WebSocketClient::OnSSLHandshake(boost::system::error_code ec) {
     if (ec) {
-        callback_->OnError(shared_from_this(), OperatorError::HANDSHARK_ERROR, ec);
+        callback_->OnError(shared_from_this(), Exception(ec));
         return;
     }
     SSLHandshake();
@@ -136,7 +136,7 @@ void WebSocketClient::SetTimeout(int timeout_seconds) {
 
 void WebSocketClient::onResolve(boost::system::error_code ec, tcp::resolver::iterator result) {
     if (ec) {
-        callback_->OnError(shared_from_this(), OperatorError::CONNECT_ERROR, ec);
+        callback_->OnError(shared_from_this(), Exception(ec));
         return;
     }
     DoConnect(result);

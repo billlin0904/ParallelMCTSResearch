@@ -1,5 +1,8 @@
 #pragma once
 
+#include <string>
+#include <exception>
+
 #include <boost/circular_buffer.hpp>
 
 #include <boost/asio.hpp>
@@ -21,5 +24,16 @@ static void InitialStream(boost::beast::websocket::stream<NextLayer>& ws) {
     ws.auto_fragment(false);
     ws.read_message_max(64 * 1024 * 1024);
 }
+
+class Exception : public std::exception {
+public:
+	explicit Exception(boost::system::error_code ec);
+
+	virtual ~Exception() = default;
+
+	const char* what() const noexcept override;
+private:
+	std::string message_;
+};
 
 }
