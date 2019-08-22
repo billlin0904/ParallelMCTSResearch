@@ -236,80 +236,10 @@ enum CommandID {
     TURN,
 };
 
-static std::string GetJsonString(Document &document) {
-    std::ostringstream ostr;
-    OStreamWrapper wrapper{ ostr };
-    PrettyWriter<OStreamWrapper> writer{ wrapper };
-    document.Accept(writer);
-    return ostr.str();
+static int32_t GetPacketID() noexcept {
+    static std::atomic<int32_t> packet_id(10000);
+    return ++packet_id;
 }
-
-struct Encoder {
-    static std::string EnterRoom(const GomokuGameState& state, int32_t room_id, int32_t round_id) {
-        Document document;
-        Value packet(kObjectType);
-        packet.AddMember("cmd", CommandID::ENTER_ROOM, document.GetAllocator());
-        packet.AddMember("room_id", room_id, document.GetAllocator());
-        packet.AddMember("round_id", round_id, document.GetAllocator());
-        packet.AddMember("player_id", state.GetPlayerID(), document.GetAllocator());
-        document.SetObject();
-        document.AddMember("packet", packet, document.GetAllocator());
-        return GetJsonString(document);
-    }
-
-    static std::string StartRound(const GomokuGameState& state, int32_t room_id, int32_t round_id) {
-        Document document;
-        Value packet(kObjectType);
-        packet.AddMember("cmd", CommandID::START_ROUND, document.GetAllocator());
-        packet.AddMember("room_id", room_id, document.GetAllocator());
-        packet.AddMember("round_id", round_id, document.GetAllocator());
-        packet.AddMember("player_id", state.GetPlayerID(), document.GetAllocator());
-        document.SetObject();
-        document.AddMember("packet", packet, document.GetAllocator());
-        return GetJsonString(document);
-    }
-
-    static std::string Turn(const GomokuGameMove& move,
-                            const GomokuGameState& state,
-                            const MCTS<GomokuGameState, GomokuGameMove> &mcts,
-                            int32_t room_id,
-                            int32_t round_id) {
-        Document document;
-        Value game_move(kObjectType);
-        game_move.AddMember("row", move.row, document.GetAllocator());
-        game_move.AddMember("column", move.column, document.GetAllocator());
-        Value packet(kObjectType);
-        packet.AddMember("cmd", CommandID::TURN, document.GetAllocator());
-        packet.AddMember("room_id", room_id, document.GetAllocator());
-        packet.AddMember("round_id", round_id, document.GetAllocator());
-        packet.AddMember("player_id", state.GetPlayerID(), document.GetAllocator());
-        packet.AddMember("move", game_move, document.GetAllocator());
-        document.SetObject();
-        document.AddMember("packet", packet, document.GetAllocator());
-        mcts.WriteTo(document);
-        return GetJsonString(document);
-    }
-
-	static std::string Turn(const GomokuGameMove& move,
-		const GomokuGameState& state,
-		int32_t player_id,
-		int32_t room_id,
-		int32_t round_id) {
-		Document document;
-		Value game_move(kObjectType);
-		game_move.AddMember("row", move.row, document.GetAllocator());
-		game_move.AddMember("column", move.column, document.GetAllocator());
-		Value packet(kObjectType);
-		packet.AddMember("cmd", CommandID::TURN, document.GetAllocator());
-		packet.AddMember("room_id", room_id, document.GetAllocator());
-		packet.AddMember("round_id", round_id, document.GetAllocator());
-		packet.AddMember("player_id", player_id, document.GetAllocator());
-		packet.AddMember("move", game_move, document.GetAllocator());
-		document.SetObject();
-		document.AddMember("packet", packet, document.GetAllocator());
-		return GetJsonString(document);
-	}
-};
 
 static int32_t GetRoundID() noexcept {
     static std::atomic<int32_t> round_id(10000);
@@ -321,6 +251,86 @@ static int32_t GetRoomID() noexcept {
     return ++round_id;
 }
 
+static std::string GetJsonString(Document &document) {
+    std::ostringstream ostr;
+    OStreamWrapper wrapper{ ostr };
+    PrettyWriter<OStreamWrapper> writer{ wrapper };
+    document.Accept(writer);
+    return ostr.str();
+}
+
+struct Encoder {
+    static std::string EnterRoom(const GomokuGameState& state, int32_t room_id, int32_t round_id, int32_t pid) {
+        Document document;
+        Value packet(kObjectType);
+        packet.AddMember("cmd", CommandID::ENTER_ROOM, document.GetAllocator());
+        packet.AddMember("room_id", room_id, document.GetAllocator());
+        packet.AddMember("round_id", round_id, document.GetAllocator());
+        packet.AddMember("player_id", state.GetPlayerID(), document.GetAllocator());        
+        packet.AddMember("pid", GetPacketID(), document.GetAllocator());
+        document.SetObject();
+        document.AddMember("packet", packet, document.GetAllocator());
+        return GetJsonString(document);
+    }
+
+    static std::string StartRound(const GomokuGameState& state, int32_t room_id, int32_t round_id, int32_t pid) {
+        Document document;
+        Value packet(kObjectType);
+        packet.AddMember("cmd", CommandID::START_ROUND, document.GetAllocator());
+        packet.AddMember("room_id", room_id, document.GetAllocator());
+        packet.AddMember("round_id", round_id, document.GetAllocator());
+        packet.AddMember("player_id", state.GetPlayerID(), document.GetAllocator());        
+        packet.AddMember("pid", GetPacketID(), document.GetAllocator());
+        document.SetObject();
+        document.AddMember("packet", packet, document.GetAllocator());
+        return GetJsonString(document);
+    }
+
+    static std::string Turn(const GomokuGameMove& move,
+                            const GomokuGameState& state,
+                            const MCTS<GomokuGameState, GomokuGameMove> &mcts,
+                            int32_t room_id,
+                            int32_t round_id,
+                            int32_t pid) {
+        Document document;
+        Value game_move(kObjectType);
+        game_move.AddMember("row", move.row, document.GetAllocator());
+        game_move.AddMember("column", move.column, document.GetAllocator());
+        Value packet(kObjectType);
+        packet.AddMember("cmd", CommandID::TURN, document.GetAllocator());
+        packet.AddMember("room_id", room_id, document.GetAllocator());
+        packet.AddMember("round_id", round_id, document.GetAllocator());
+        packet.AddMember("player_id", state.GetPlayerID(), document.GetAllocator());
+        packet.AddMember("pid", GetPacketID(), document.GetAllocator());
+        packet.AddMember("move", game_move, document.GetAllocator());
+        document.SetObject();
+        document.AddMember("packet", packet, document.GetAllocator());
+        mcts.WriteTo(document);
+        return GetJsonString(document);
+    }
+
+	static std::string Turn(const GomokuGameMove& move,		
+		int32_t player_id,
+		int32_t room_id,
+        int32_t round_id,
+        int32_t pid) {
+		Document document;
+		Value game_move(kObjectType);
+		game_move.AddMember("row", move.row, document.GetAllocator());
+		game_move.AddMember("column", move.column, document.GetAllocator());
+		Value packet(kObjectType);
+		packet.AddMember("cmd", CommandID::TURN, document.GetAllocator());
+		packet.AddMember("room_id", room_id, document.GetAllocator());
+		packet.AddMember("round_id", round_id, document.GetAllocator());
+		packet.AddMember("player_id", player_id, document.GetAllocator());
+        packet.AddMember("pid", pid, document.GetAllocator());
+		packet.AddMember("move", game_move, document.GetAllocator());
+		document.SetObject();
+		document.AddMember("packet", packet, document.GetAllocator());
+		return GetJsonString(document);
+	}
+};
+
 class GomokuRoom {
 public:
     GomokuRoom(int32_t room_id, websocket::WebSocketServer *server)
@@ -330,12 +340,14 @@ public:
     }
 
     void EnterRoom(int32_t session_id, bool is_watch) {
+        auto pid = GetPacketID();
 		if (players_.empty() && !is_watch) {
 			players_.insert(session_id);
-			server_->SentTo(session_id, Encoder::EnterRoom(*state_, room_id_, round_id_));
+            server_->SentTo(session_id, Encoder::EnterRoom(*state_, room_id_, round_id_, pid));
 		} else {
 			watchers_.insert(session_id);
-			BoardcastWatchers(Encoder::EnterRoom(*state_, room_id_, round_id_));
+            BoardcastWatchers(Encoder::EnterRoom(*state_, room_id_, round_id_, pid));
+            std::cout << "Server send EnterRoom pid: " << pid << std::endl;
 		}		
     }
 
@@ -344,41 +356,38 @@ public:
         state_.reset(new GomokuGameState());
         round_id_ = GetRoundID();
 
-		auto msg = Encoder::StartRound(*state_, room_id_, round_id_);
+        auto pid = GetPacketID();
+        auto msg = Encoder::StartRound(*state_, room_id_, round_id_, pid);
 		server_->SentTo(session_id, msg);
 		BoardcastWatchers(msg);
+
+        std::cout << "New round:" << round_id_ << std::endl;
+        std::cout << "Server send NewRound pid: " << pid << std::endl;
     }
 
     void SetOpponentMove(const GomokuGameMove &move) {
         state_->ApplyMove(move);
         ai_->SetOpponentMove(move);
 
-		auto msg = Encoder::Turn(move, *state_, 0, room_id_, round_id_);
+        auto pid = GetPacketID();
+        auto msg = Encoder::Turn(move, 0, room_id_, round_id_, pid);
 		BoardcastWatchers(msg);
     }
 
-    void Turn(int32_t session_id) {
-        std::cout << "Server:" << std::endl << *state_ << std::endl;
-#ifdef _DEBUG        
-		auto move = ai_->Search(10, 300);
-#else
-		auto move = ai_->Search(100, 3000);
-#endif
-        state_->ApplyMove(move);
-        std::cout << "Server move: " << move.ToString() << std::endl << *state_ << std::endl;
-
-		auto msg = Encoder::Turn(move, *state_, *ai_, room_id_, round_id_);
-		server_->SentTo(session_id, msg);
-		BoardcastWatchers(msg);
+    void ProcessTurn(int32_t session_id, const GomokuGameMove& move) {
+        if (!IsPlayerTurn(session_id)) {
+            return;
+        }
+        if (IsTerminal()) {
+            NewRound(session_id);
+            return;
+        }
+        SetOpponentMove(move);
+        Turn(session_id);
+        if (IsTerminal()) {
+            NewRound(session_id);
+        }
     }
-
-    bool IsTerminal() const {
-        return state_->IsTerminal();
-    }
-
-	bool IsPlayerTurn(int32_t session_id) const {
-		return players_.find(session_id) != players_.end();
-	}
 
 	int32_t GetPlayerCount() const {
 		return players_.size();
@@ -390,6 +399,31 @@ public:
 	}
 
 private:
+    void Turn(int32_t session_id) {
+#ifdef _DEBUG
+        auto move = ai_->Search(30, 300);
+#else
+        auto move = ai_->Search(100, 3000);
+#endif
+        assert(state_->IsLegalMove(move));
+        state_->ApplyMove(move);
+        std::cout << "Server move: " << move.ToString() << std::endl << *state_ << std::endl;
+
+        auto pid = GetPacketID();
+        auto msg = Encoder::Turn(move, *state_, *ai_, room_id_, round_id_, pid);
+        std::cout << "Server send Turn pid: " << pid << std::endl;
+        server_->SentTo(session_id, msg);
+        BoardcastWatchers(msg);
+    }
+
+    bool IsTerminal() const {
+        return state_->IsTerminal();
+    }
+
+    bool IsPlayerTurn(int32_t session_id) const {
+        return players_.find(session_id) != players_.end();
+    }
+
 	void BoardcastWatchers(const std::string& message) {
 		for (auto session_id : watchers_) {
 			server_->SentTo(session_id, message);
@@ -451,16 +485,20 @@ public:
 
         const auto & packet = document["packet"];
         auto cmd = static_cast<CommandID>(packet["cmd"].GetInt());
+        std::cout << "Server recive pid:" << packet["pid"].GetInt() << std::endl;
 
         std::lock_guard<std::mutex> guard{ mutex_ };
         auto itr = session_room_.find(s->GetSessionID());
 
         switch (cmd) {
         case CommandID::ENTER_ROOM:
-			ProcessEnterRoom(packet, s, itr);
+            RequestEnterRoom(packet, s, itr);
             break;
         case CommandID::TURN:			
-            Turn(s, packet, (*itr).second);
+            RequestTurn(s, packet, (*itr).second);
+            break;
+        case CommandID::START_ROUND:
+        default:
             break;
         }
         s->Receive();
@@ -470,7 +508,7 @@ public:
         std::cerr << e.what() << std::endl;
     }
 private:
-	void ProcessEnterRoom(const Value &packet,
+    void RequestEnterRoom(const Value &packet,
 		const std::shared_ptr<websocket::Session> &s, 
 		std::unordered_map<int32_t, int32_t>::iterator itr) {
 		bool is_watch = false;
@@ -487,8 +525,7 @@ private:
 		} else {
 			if (itr == session_room_.end()) {
 				NewRoom(s, is_watch);
-			}
-			else {
+            } else {
 				EnterRoom(s, (*itr).second, is_watch);
 			}
 		}
@@ -510,25 +547,13 @@ private:
         room_.insert(std::make_pair(room_id, std::move(room)));
     }
 
-    void Turn(const std::shared_ptr<websocket::Session> &s, const Value& packet, int32_t room_id) {
+    void RequestTurn(const std::shared_ptr<websocket::Session> &s, const Value& packet, int32_t room_id) {
         auto itr = room_.find(room_id);
         if (itr == room_.end()) {
 			return;			
         }
-		if (!(*itr).second->IsPlayerTurn(s->GetSessionID())) {
-			return;
-		}
-		if ((*itr).second->IsTerminal()) {
-			(*itr).second->NewRound(s->GetSessionID());
-			return;
-		}
-		const GomokuGameMove move(packet["move"]["row"].GetInt(), packet["move"]["column"].GetInt());
-		std::cout << "Client move: " << move.ToString() << std::endl;
-		(*itr).second->SetOpponentMove(move);
-		(*itr).second->Turn(s->GetSessionID());
-		if ((*itr).second->IsTerminal()) {
-			(*itr).second->NewRound(s->GetSessionID());
-		}
+        const GomokuGameMove move(packet["move"]["row"].GetInt(), packet["move"]["column"].GetInt());
+        (*itr).second->ProcessTurn(s->GetSessionID(), move);
     }
 
     std::mutex mutex_;
@@ -545,7 +570,8 @@ public:
 
     void OnConnected(std::shared_ptr<websocket::WebSocketClient> s) override {
         state_.reset(new GomokuGameState());
-        s->Send(Encoder::EnterRoom(*state_, room_id_, round_id_));
+        auto pid = GetPacketID();
+        s->Send(Encoder::EnterRoom(*state_, room_id_, round_id_, pid));
         s->Receive();
     }
 
@@ -566,6 +592,7 @@ public:
 
         const auto& packet = document["packet"];
         auto cmd = static_cast<CommandID>(packet["cmd"].GetInt());
+        std::cout << "Client recive pid:" << packet["pid"].GetInt() << std::endl;
 
         if (cmd == CommandID::ENTER_ROOM || cmd == CommandID::START_ROUND) {
             NewRoundOrEnterRoom(s, cmd);
@@ -577,7 +604,7 @@ public:
 		room_id_ = packet["room_id"].GetInt();
 		round_id_ = packet["round_id"].GetInt();
 
-        //std::cout << "Client: " << room_id_ << " - " << round_id_ << std::endl << *state_ << std::endl;
+        std::cout << "Client: " << room_id_ << " - " << round_id_ << std::endl << *state_ << std::endl;
         s->Receive();
     }
     void OnError(std::shared_ptr<websocket::WebSocketClient>, const websocket::Exception &e) override {
@@ -588,9 +615,7 @@ private:
         if (cmd == CommandID::START_ROUND) {
 			if (round_id_ > 0) {
 				assert(state_->IsTerminal());
-
 				state_.reset(new GomokuGameState());
-
 				ai_.reset(new MCTS<GomokuGameState, GomokuGameMove>());
 #ifdef _DEBUG        
 				auto move = ai_->Search(10, 300);
@@ -598,12 +623,13 @@ private:
 				auto move = ai_->Search(100, 300);
 #endif
 				state_->ApplyMove(move);
-				s->Send(Encoder::Turn(move, *state_, *ai_, room_id_, round_id_));
+                auto pid = GetPacketID();
+                std::cout << "Client send Turn pid: " << pid << std::endl;
+                s->Send(Encoder::Turn(move, *state_, *ai_, room_id_, round_id_, pid));
 			}            
 		}
 		else if (cmd == CommandID::ENTER_ROOM) {
 			state_.reset(new GomokuGameState());
-
 			ai_.reset(new MCTS<GomokuGameState, GomokuGameMove>());
 #ifdef _DEBUG        
 			auto move = ai_->Search(10, 300);
@@ -611,7 +637,9 @@ private:
 			auto move = ai_->Search(100, 3000);
 #endif
 			state_->ApplyMove(move);
-			s->Send(Encoder::Turn(move, *state_, *ai_, room_id_, round_id_));
+            auto pid = GetPacketID();
+            std::cout << "Client send Turn pid: " << pid << std::endl;
+            s->Send(Encoder::Turn(move, *state_, *ai_, room_id_, round_id_, pid));
 		}        
     }
 
@@ -623,9 +651,12 @@ private:
 		auto search_move = ai_->Search(10, 300);
 #else
 		auto search_move = ai_->Search(100, 3000);
-#endif        
+#endif
+        assert(state_->IsLegalMove(move));
         state_->ApplyMove(search_move);
-        s->Send(Encoder::Turn(search_move, *state_, *ai_, room_id_, round_id_));
+        auto pid = GetPacketID();
+        s->Send(Encoder::Turn(search_move, *state_, *ai_, room_id_, round_id_, pid));
+        std::cout << "Client send Turn pid: " << pid << std::endl;
     }
 
     int32_t room_id_;

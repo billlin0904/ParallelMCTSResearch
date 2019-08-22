@@ -53,7 +53,7 @@ public:
         , ws_(std::move(socket))
         , send_queue_(MAX_SEND_QUEUE_SIZE)
         , callback_(callback) {
-        InitialStream(ws_);
+        //InitialStream(ws_);
     }
 
     virtual ~Session() {

@@ -4,6 +4,7 @@ CONFIG -= app_bundle
 CONFIG -= qt
 
 SOURCES += main.cpp\
+            ./websocket/websocket.cpp\
            ./websocket/websocket_client.cpp\
            ./websocket/websocket_server.cpp\
 
@@ -12,6 +13,7 @@ INCLUDEPATH += ./thirdparty/rapidjson/include/
 linux-g++* {
 CONFIG(debug, debug|release) {
     QMAKE_CXXFLAGS += -std=gnu++11 -g
+    DEFINES += _DEBUG
 } else {
     QMAKE_CXXFLAGS += -std=gnu++11
     QMAKE_CXXFLAGS_RELEASE -= -O1
