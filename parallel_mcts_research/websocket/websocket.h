@@ -27,13 +27,13 @@ static void InitialStream(boost::beast::websocket::stream<NextLayer>& ws) {
 
 class Exception : public std::exception {
 public:
-	explicit Exception(boost::system::error_code ec);
+    explicit Exception(boost::system::error_code ec);
 
-	virtual ~Exception() = default;
+    virtual ~Exception() = default;
 
-	const char* what() const noexcept override;
+    const char* what() const noexcept override;
 private:
-	std::string message_;
+    std::string message_;
 };
 
 }

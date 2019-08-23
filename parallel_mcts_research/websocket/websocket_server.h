@@ -265,6 +265,7 @@ private:
     void OnAccept(boost::system::error_code ec, boost::asio::ip::tcp::socket socket) {
         if (ec) {
             callback_->OnError(nullptr, Exception(ec));
+            return;
         }
         auto id = NewSessionID();
         auto session = std::make_shared<Session>(id, ioc_, std::move(socket), callback_);
@@ -282,7 +283,7 @@ private:
 
 class WebSocketServer : public ServerCallback {
 public:
-    WebSocketServer(const std::string &server_ver, size_t max_thread = std::thread::hardware_concurrency())
+    WebSocketServer(const std::string &server_ver, uint32_t max_thread = std::thread::hardware_concurrency())
         : max_thread_(max_thread)
         , ioc_(max_thread) {
         listener_ = std::make_shared<Listener>(server_ver, ioc_);
@@ -324,7 +325,7 @@ public:
         });
 
         worker_threads_.reserve(max_thread_);
-        for (auto i = max_thread_ - 1; i > 0; --i) {
+        for (uint32_t i = max_thread_ - 1; i > 0; --i) {
             worker_threads_.emplace_back([this] {
                 ioc_.run();
             });
@@ -346,8 +347,9 @@ private:
                 thread.join();
             }
         }
+        worker_threads_.clear();
     }
-    size_t max_thread_;
+    uint32_t max_thread_;
     boost::beast::net::io_context ioc_;
     std::vector<std::thread> worker_threads_;
     std::shared_ptr<Listener> listener_;

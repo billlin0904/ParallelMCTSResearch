@@ -20,14 +20,14 @@ class WebSocketClient;
 
 class WebSocketCallback {
 public:
-	virtual ~WebSocketCallback() = default;
+    virtual ~WebSocketCallback() = default;
     virtual void OnConnected(std::shared_ptr<WebSocketClient>) = 0;
     virtual void OnDisconnected(std::shared_ptr<WebSocketClient>) = 0;
     virtual void OnSend(std::shared_ptr<WebSocketClient>) = 0;
     virtual void OnReceive(std::shared_ptr<WebSocketClient>, const std::string &) = 0;
     virtual void OnError(std::shared_ptr<WebSocketClient>, const Exception &) = 0;
 protected:
-	WebSocketCallback() = default;
+    WebSocketCallback() = default;
 };
 
 using tcp = boost::asio::ip::tcp;
