@@ -4,6 +4,7 @@ var chance = true;
 // inintalize whole board
 var gameboard = [];
 
+var HAS_CHART = false;
 var MAX_WIDTH = 10;
 var MAX_HEIGHT = 10;
 
@@ -73,10 +74,12 @@ window.onload = function() {
             var color = json.packet.player_id;
 			if (color == 1) {
 				root = json.mcts_result;
-				update(root);
+				if (HAS_CHART) {
+					update(root);
+				}
 			}            
-            gameboard[i][j] = color;
-            drawnodes(i, j, color);
+            gameboard[i][j] = color;         
+			drawnodes(i, j, color);
             if (json.color != usr) {
                 chance = true;
             }

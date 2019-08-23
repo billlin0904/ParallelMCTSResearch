@@ -41,6 +41,7 @@ int32_t NewSessionID() noexcept;
 class Session : public std::enable_shared_from_this<Session> {
     int32_t session_id_;
     boost::beast::websocket::stream<boost::asio::ip::tcp::socket> ws_;
+	boost::asio::strand<boost::asio::io_context::executor_type> strand_;
     boost::beast::flat_buffer buffer_;
     boost::circular_buffer<std::string> send_queue_;
     ServerCallback *callback_;
@@ -48,12 +49,13 @@ class Session : public std::enable_shared_from_this<Session> {
 public:
     static const int32_t MAX_SEND_QUEUE_SIZE = 128;
 
-    Session(int32_t session_id, boost::asio::ip::tcp::socket socket, ServerCallback* callback)
+    Session(int32_t session_id, boost::asio::io_context& ioc, boost::asio::ip::tcp::socket socket, ServerCallback* callback)
         : session_id_(session_id)
         , ws_(std::move(socket))
         , send_queue_(MAX_SEND_QUEUE_SIZE)
+		, strand_(boost::asio::make_strand(ioc))
         , callback_(callback) {
-        //InitialStream(ws_);
+        InitialStream(ws_);
     }
 
     virtual ~Session() {
@@ -68,8 +70,7 @@ public:
     }
 
     void Start(std::string server_ver) {
-        ws_.set_option(boost::beast::websocket::stream_base::timeout::suggested(
-                           boost::beast::role_type::server));
+        //ws_.set_option(boost::beast::websocket::stream_base::timeout::suggested(boost::beast::role_type::server));
         ws_.set_option(boost::beast::websocket::stream_base::decorator(
                            [server_ver](boost::beast::websocket::response_type& res) {
                            res.set(boost::beast::http::field::server, server_ver);
@@ -81,20 +82,19 @@ public:
     }
 
     void Receive() {
-        ws_.async_read(
-                    buffer_,
-                    boost::beast::bind_front_handler(
-                        &Session::OnRead,
-                        shared_from_this()));
+		ws_.async_read(
+			buffer_,
+			boost::asio::bind_executor(strand_,
+				std::bind(&Session::OnRead, shared_from_this(), std::placeholders::_1, std::placeholders::_2)));
     }
 
     void Send(const std::string &message) {
         auto buffer(message);
-        boost::beast::net::post(ws_.get_executor(),
-                                boost::beast::bind_front_handler(
-                                    &Session::DoWrite,
-                                    shared_from_this(),
-                                    buffer));
+		boost::beast::net::post(strand_,
+			boost::beast::bind_front_handler(
+				&Session::DoWrite,
+				shared_from_this(),
+				buffer));
     }
 
     int32_t GetSessionID() const {
@@ -117,10 +117,10 @@ private:
 
     void Write() {
         ws_.async_write(
-                    boost::beast::net::buffer(&send_queue_.front()[0], send_queue_.front().size()),
-                boost::beast::bind_front_handler(
-                    &Session::OnWrite,
-                    shared_from_this()));
+			boost::beast::net::buffer(&send_queue_.front()[0], send_queue_.front().size()),
+			boost::asio::bind_executor(strand_,
+				std::bind(&Session::OnWrite, shared_from_this(), std::placeholders::_1, std::placeholders::_2)
+                ));
     }
 
     void OnWrite(boost::system::error_code ec, std::size_t) {
@@ -178,7 +178,7 @@ public:
     Listener(const std::string &server_ver, boost::asio::io_context& ioc)
         : is_binray_(false)
         , ioc_(ioc)
-        , acceptor_(ioc)
+        , acceptor_(boost::asio::make_strand(ioc))
         , callback_(nullptr)
         , server_ver_(server_ver) {
     }
@@ -267,7 +267,7 @@ private:
             callback_->OnError(nullptr, Exception(ec));
         }
         auto id = NewSessionID();
-        auto session = std::make_shared<Session>(id, std::move(socket), callback_);
+        auto session = std::make_shared<Session>(id, ioc_, std::move(socket), callback_);
         session->SetBinaryFormat(is_binray_);
         try {
             session->Start(server_ver_);

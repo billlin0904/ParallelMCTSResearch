@@ -22,7 +22,7 @@ static void InitialStream(boost::beast::websocket::stream<NextLayer>& ws) {
     pmd.compLevel = 3;
     ws.set_option(pmd);
     ws.auto_fragment(false);
-    ws.read_message_max(64 * 1024 * 1024);
+    //ws.read_message_max(64 * 1024 * 1024);
 }
 
 class Exception : public std::exception {
