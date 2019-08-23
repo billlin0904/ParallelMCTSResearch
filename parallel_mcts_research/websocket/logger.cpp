@@ -1,7 +1,10 @@
 #include <sstream>
-#include <filesystem>
 #include <vector>
-
+#ifdef _WIN32
+#include <filesystem>
+#else
+#include <boost/filesystem.hpp>
+#endif
 #include <spdlog/async.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -13,6 +16,7 @@ namespace websocket {
 
 using spdlog::sinks::sink;
 
+#ifdef _WIN32
 class DebugOutputSink : public spdlog::sinks::base_sink<std::mutex> {
 public:
 	DebugOutputSink() {
@@ -28,12 +32,18 @@ private:
 	void flush_() override {
 	}
 };
+#endif
 
 static void CreateLogsDir() {
-	const std::filesystem::path log_path("logs");
+#ifdef _WIN32
+    namespace Fs = std::filesystem;
+#else
+    namespace Fs = boost::filesystem;
+#endif
+    const Fs::path log_path("logs");
 
-	if (!std::filesystem::exists(log_path)) {
-		std::filesystem::create_directory(log_path);
+    if (!Fs::exists(log_path)) {
+        Fs::create_directory(log_path);
 	}
 }
 
@@ -73,7 +83,9 @@ std::shared_ptr<spdlog::logger> Logger::GetLogger(const std::string& name, bool 
 
 Logger& Logger::AddDebugOutputLogger() {	
 	sinks_.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
+#ifdef _WIN32
 	sinks_.push_back(std::make_shared<DebugOutputSink>());
+#endif
 	return *this;
 }
 

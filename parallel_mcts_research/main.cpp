@@ -5,7 +5,7 @@
 #include <fstream>
 #include <sstream>
 #include <unordered_set>
-
+#include <atomic>
 #include "rng.h"
 #include "mcts.h"
 
@@ -59,6 +59,10 @@ public:
                 board_[row].push_back(EMPTY);
             }
         }
+    }
+
+    bool IsEmptyMove() const noexcept {
+        return remain_move_ == MAX_WIDTH * MAX_HEIGHT;
     }
 
     bool IsTerminal() const noexcept {
@@ -307,7 +311,7 @@ struct Encoder {
         packet.AddMember("move", game_move, document.GetAllocator());
         document.SetObject();
         document.AddMember("packet", packet, document.GetAllocator());
-        //mcts.WriteTo(document);
+        mcts.WriteTo(document);
         return GetJsonString(document);
     }
 
@@ -368,6 +372,8 @@ public:
     }
 
     void SetOpponentMove(const GomokuGameMove &move) {
+        assert(state_->IsLegalMove(move));
+
         state_->ApplyMove(move);
         ai_->SetOpponentMove(move);
 
@@ -376,7 +382,8 @@ public:
 		BoardcastWatchers(msg);		
     }
 
-    void ProcessTurn(int32_t session_id, const GomokuGameMove& move) {		
+    void ProcessTurn(int32_t session_id, int32_t round_id, const GomokuGameMove& move) {
+        assert(round_id == round_id_);
         if (!IsPlayerTurn(session_id)) {
             return;
         }
@@ -508,6 +515,7 @@ public:
 
     void OnError(std::shared_ptr<websocket::Session>, const websocket::Exception &e) override {
         std::cerr << e.what() << std::endl;
+        std::cerr.flush();
     }
 private:
     void RequestEnterRoom(const Value &packet,
@@ -553,10 +561,10 @@ private:
         auto itr = room_.find(room_id);
         if (itr == room_.end()) {
 			return;			
-        }
+        }        
         const GomokuGameMove move(packet["move"]["row"].GetInt(), packet["move"]["column"].GetInt());
 		logger_->debug("Server receive client move: {} pid: {}", move.ToString(), packet["pid"].GetInt());
-        (*itr).second->ProcessTurn(s->GetSessionID(), move);
+        (*itr).second->ProcessTurn(s->GetSessionID(), packet["round_id"].GetInt(), move);
     }
 
     std::mutex mutex_;	
@@ -599,27 +607,30 @@ public:
         auto cmd = static_cast<CommandID>(packet["cmd"].GetInt());
 		logger_->debug("Client receive pid: {}", packet["pid"].GetInt());
 
+        std::lock_guard<std::mutex> guard{mutex_};
+
         if (cmd == CommandID::ENTER_ROOM || cmd == CommandID::START_ROUND) {
+            if (cmd == CommandID::START_ROUND) {
+                round_id_ = packet["round_id"].GetInt();
+            }
+            room_id_ = packet["room_id"].GetInt();
             NewRoundOrEnterRoom(s, cmd);
         }
         else if (cmd == CommandID::TURN) {
             Turn(s, packet);
         }
-
-		room_id_ = packet["room_id"].GetInt();
-		round_id_ = packet["round_id"].GetInt();
-
         s->Receive();
-		std::cout << "Client: " << room_id_ << " " << round_id_ << std::endl << *state_;
+		std::cout << "Client: " << room_id_ << " " << round_id_ << std::endl << *state_;        
     }
     void OnError(std::shared_ptr<websocket::WebSocketClient>, const websocket::Exception &e) override {
 		std::cerr << e.what() << std::endl;
+        std::cerr.flush();
     }
 private:
     void NewRoundOrEnterRoom(const std::shared_ptr<websocket::WebSocketClient>& s, CommandID cmd) {
         if (cmd == CommandID::START_ROUND) {
-			if (round_id_ > 0) {
-				assert(state_->IsTerminal());
+            if (round_id_ > 0 && !state_->IsEmptyMove()) {
+				assert(state_->IsTerminal());                
 				state_.reset(new GomokuGameState());
 				ai_.reset(new MCTS<GomokuGameState, GomokuGameMove>());
 #ifdef _DEBUG        
@@ -649,9 +660,18 @@ private:
     }
 
     void Turn(const std::shared_ptr<websocket::WebSocketClient>& s, const Value &packet) {
+        assert(packet["round_id"].GetInt() == round_id_);
+
         GomokuGameMove move(packet["move"]["row"].GetInt(), packet["move"]["column"].GetInt());
+        assert(state_->IsLegalMove(move));
+
         state_->ApplyMove(move);
         ai_->SetOpponentMove(move);
+
+        if (state_->IsTerminal()) {
+            logger_->debug("========> Client receive final move round id:{}, Wait new round ...", round_id_);
+            return;
+        }
 #ifdef _DEBUG        
 		auto search_move = ai_->Search(10, 30);
 #else
@@ -666,6 +686,7 @@ private:
 
     int32_t room_id_;
     int32_t round_id_;
+    std::mutex mutex_;
     std::unique_ptr<MCTS<GomokuGameState, GomokuGameMove>> ai_;
     std::unique_ptr<GomokuGameState> state_;
 	std::shared_ptr<spdlog::logger> logger_;

@@ -5,10 +5,12 @@ CONFIG -= qt
 
 SOURCES += main.cpp\
             ./websocket/websocket.cpp\
+            ./websocket/logger.cpp \
            ./websocket/websocket_client.cpp\
            ./websocket/websocket_server.cpp\
 
 INCLUDEPATH += ./thirdparty/rapidjson/include/
+INCLUDEPATH += ./thirdparty/spdlog/include/
 
 linux-g++* {
 CONFIG(debug, debug|release) {
@@ -36,6 +38,7 @@ HEADERS += \
     node.h \
     ./websocket/websocket_client.h \
     ./websocket/websocket_server.h \
+    ./websocket/logger.h \
     mcts.h \
     websocket/websocket_server.h \
     websocket/websocket.h

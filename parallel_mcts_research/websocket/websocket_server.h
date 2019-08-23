@@ -52,8 +52,8 @@ public:
     Session(int32_t session_id, boost::asio::io_context& ioc, boost::asio::ip::tcp::socket socket, ServerCallback* callback)
         : session_id_(session_id)
         , ws_(std::move(socket))
-        , send_queue_(MAX_SEND_QUEUE_SIZE)
-		, strand_(boost::asio::make_strand(ioc))
+        , strand_(boost::asio::make_strand(ioc))
+        , send_queue_(MAX_SEND_QUEUE_SIZE)		
         , callback_(callback) {
         InitialStream(ws_);
     }
@@ -70,7 +70,7 @@ public:
     }
 
     void Start(std::string server_ver) {
-        //ws_.set_option(boost::beast::websocket::stream_base::timeout::suggested(boost::beast::role_type::server));
+        ws_.set_option(boost::beast::websocket::stream_base::timeout::suggested(boost::beast::role_type::server));
         ws_.set_option(boost::beast::websocket::stream_base::decorator(
                            [server_ver](boost::beast::websocket::response_type& res) {
                            res.set(boost::beast::http::field::server, server_ver);
