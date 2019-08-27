@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 #include <algorithm>
+#include <cmath>
 
 namespace mcts {
 
@@ -15,10 +16,6 @@ using NodePtr = std::shared_ptr<Node<State, Move>>;
 template <typename State, typename Move>
 using WeakPtr = std::weak_ptr<Node<State, Move>>;
 
-static double DefaultUCB() noexcept {
-	return std::sqrt(2.0);
-}
-
 template <typename State, typename Move>
 class Node : public std::enable_shared_from_this<Node<State, Move>> {
 public:
@@ -26,12 +23,14 @@ public:
     using ptr_type = NodePtr<State, Move>;
     using parent_ptr_type = WeakPtr<State, Move>;
 
-    Node(const State& state = State(), const Move& move = Move(), NodePtr<State, Move> parent = nullptr)
-        : state_(state)
+    Node(const State& state = State(),
+		const Move& move = Move(),
+		NodePtr<State, Move> parent = nullptr)
+        : player_id_(state.GetPlayerID())
+		, score_(0)
+		, visits_(0)
+		, state_(state)
         , move_(move)
-        , player_id_(state.GetPlayerID())
-        , score_(0)
-        , visits_(0)
         , parent_(parent)
         , possible_moves_(state.GetLegalMoves()) {
     }
@@ -95,7 +94,7 @@ public:
         return player_id_;
     }
 
-    const std::vector<ptr_type>& GetChildren() const {
+    const std::vector<ptr_type>& GetChildren() const noexcept {
         return children_;
     }
 
@@ -103,46 +102,36 @@ public:
         return parent_.lock();
     }
 
-	size_t GetChildrenSize() const {
+	size_t GetChildrenSize() const noexcept {
 		return children_.size();
 	}
 
-	size_t GetMaxDepth(size_t parent_depth) const {
-		if (!IsLeaf()) {
-			return parent_depth + 1;
-		}
-		size_t max_depth = 0;
-		for (const auto& children : GetChildren()) {
-			for (const auto& child : children->GetChildren()) {
-				max_depth = (std::max)(max_depth, child->GetMaxDepth(parent_depth));
-			}
-		}
-		return max_depth;
-	}
-
-	double GetUCB() const {
+	double GetUCB() const noexcept {
 		return (GetScore() / GetVisits())
-			+ DefaultUCB() * std::sqrt(std::log(double(GetVisits())))
+			+ UCBConstant() * std::sqrt(std::log(double(GetVisits())))
 			/ double(GetVisits());
 	}
 
 private:
-    void RemoveMove(const Move& move) {
-        auto itr = std::find(possible_moves_.begin(), possible_moves_.end(), move);
-        if (itr != possible_moves_.end()) {
-            possible_moves_.erase(itr);
-        }
-    }
+	static double UCBConstant() noexcept {
+		static const double ucb = std::sqrt(2.0);
+		return ucb;
+	}
 
-    State state_;
-    Move move_;
+    void RemoveMove(const Move& move) {
+		possible_moves_.erase(
+			std::remove(possible_moves_.begin(), possible_moves_.end(), move),
+			possible_moves_.end());
+    }
+    
     int8_t player_id_;
     double score_;
     int64_t visits_;
+	State state_;
+	Move move_;
     parent_ptr_type parent_;
     std::vector<ptr_type> children_;
     std::vector<Move> possible_moves_;
 };
-
 
 }

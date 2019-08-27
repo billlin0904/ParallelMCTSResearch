@@ -3,7 +3,6 @@
 #ifdef _WIN32
 #define SPDLOG_WCHAR_TO_UTF8_SUPPORT
 #define SPDLOG_WCHAR_FILENAMES
-#define SPDLOG_EOL " "
 #endif
 
 #include <spdlog/spdlog.h>

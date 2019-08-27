@@ -3,23 +3,11 @@
 #include <vector>
 #include <memory>
 #include <algorithm>
-#include <random>
-#include <cmath>
 #include <ostream>
 
 #include "rng.h"
 #include "node.h"
-
-#define ENABLE_JSON 1
-
-#if ENABLE_JSON
-#define RAPIDJSON_HAS_STDSTRING 1
-#include <rapidjson/document.h>
-#include <rapidjson/ostreamwrapper.h>
-#include <rapidjson/writer.h>
-#include <rapidjson/prettywriter.h>
-using namespace rapidjson;
-#endif
+#include "threadpool.h"
 
 namespace mcts {
 
@@ -38,19 +26,15 @@ public:
 
     Move Search(int32_t evaluate_count, int32_t rollout_limit);
 
-    void SetOpponentMove(const Move& opponent_move);
+	Move ParallelSearch(int32_t evaluate_count, int32_t rollout_limit);
 
-	size_t GetMaxDepth(size_t parent_depth = 0) const;
+    void SetOpponentMove(const Move& opponent_move);
 
 	node_ptr_type GetCurrentNode() const;
 
-#if ENABLE_JSON
-    void WriteTo(Document& document) const;
-#endif
+	node_ptr_type GetRoot() const;
 
 private:
-    double GetUCB(const node_ptr_type& node) const;
-
 	node_ptr_type GetBestChild(const node_ptr_type& parent) const;
 
     node_ptr_type GetBestUCBChild(const node_ptr_type& parent) const;
@@ -62,33 +46,8 @@ private:
     double Rollout(int32_t evaluate_count, const node_ptr_type& leaf);
 
     void BackPropagation(const node_ptr_type& leaf, double score);
-#if ENABLE_JSON
-	friend void WriteChildren(const MCTS& mcts, Value & parent_node, node_ptr_type parent, Document& document) {
-		Value children_node(rapidjson::kArrayType);
-		for (const auto &children : parent->GetChildren()) {
-			Value object(kObjectType);
-			object.AddMember("visits", children->GetVisits(), document.GetAllocator());
-            object.AddMember("value", children->GetUCB(), document.GetAllocator());
-            object.AddMember("state", children->GetState().ToString(), document.GetAllocator());
-            object.AddMember("name", children->GetLastMove().ToString(), document.GetAllocator());
-			if (children->IsLeaf()) {
-				WriteChildren(mcts, object, children, document);
-			}
-			children_node.PushBack(object, document.GetAllocator());
-		}
-		parent_node.AddMember("children", children_node, document.GetAllocator());
-	}    
 
-	friend std::ostream& operator<<(std::ostream& stream, const MCTS& mcts) {		
-        Document document;
-        document.SetObject();
-        mcts.WriteTo(document);
-		OStreamWrapper wrapper{ stream };
-		PrettyWriter<OStreamWrapper> writer{ wrapper };
-		document.Accept(writer);
-		return stream;
-	}
-#endif
+	std::atomic<int32_t> max_depth_;
 	int64_t visits_;
     node_ptr_type root_;
     node_ptr_type current_node_;
@@ -96,7 +55,8 @@ private:
 
 template <typename State, typename Move>
 MCTS<State, Move>::MCTS()
-    : visits_(0)
+    : max_depth_(0)
+	, visits_(0)
     , root_(std::make_shared<Node<State, Move>>())
     , current_node_(root_) {
 }
@@ -109,24 +69,9 @@ MCTS<State, Move>::MCTS(const children_vector_type &children)
 	}
 }
 
-#if ENABLE_JSON
 template <typename State, typename Move>
-void MCTS<State, Move>::WriteTo(Document& document) const {
-    Value parent_node(kObjectType);    
-    parent_node.AddMember("value", GetUCB(root_), document.GetAllocator());
-    parent_node.AddMember("name", root_->GetLastMove().ToString(), document.GetAllocator());
-    parent_node.AddMember("state", root_->GetState().ToString(), document.GetAllocator());
-    WriteChildren(*this, parent_node, root_, document);
-    document.AddMember("mcts_result", parent_node, document.GetAllocator());
-}
-#endif
-
-template <typename State, typename Move>
-double MCTS<State, Move>::GetUCB(const typename MCTS<State, Move>::node_ptr_type& node) const {
-    return (node->GetScore() / node->GetVisits())
-            + DefaultUCB() * std::sqrt(std::log(double(node->GetVisits())))
-            / double(node->GetVisits());
-
+typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::GetRoot() const {
+	return root_;
 }
 
 template <typename State, typename Move>
@@ -135,7 +80,7 @@ typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::GetBestUCBChild(con
     auto itr = std::max_element(children.begin(), children.end(), [this](
                                 const typename MCTS<State, Move>::node_ptr_type &first,
                                 const typename MCTS<State, Move>::node_ptr_type& last) {
-        return GetUCB(first) > GetUCB(last);
+        return first->GetUCB() > last->GetUCB();
     });
     return *itr;
 }
@@ -158,6 +103,7 @@ typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::GetCurrentNode() co
 template <typename State, typename Move>
 Move MCTS<State, Move>::Search(int32_t evaluate_count, int32_t rollout_limit) {
     visits_ = evaluate_count;
+	max_depth_ = 0;
 
     for (auto i = 0; i < evaluate_count; ++i) {
         auto selected_parent = Select();
@@ -171,8 +117,30 @@ Move MCTS<State, Move>::Search(int32_t evaluate_count, int32_t rollout_limit) {
 }
 
 template <typename State, typename Move>
-size_t MCTS<State, Move>::GetMaxDepth(size_t parent_depth) const {
-	return root_->GetMaxDepth(parent_depth);
+Move MCTS<State, Move>::ParallelSearch(int32_t evaluate_count, int32_t rollout_limit) {
+	visits_ = evaluate_count;
+	max_depth_ = 0;
+
+	std::mutex root_mutex;
+	auto tasks = ParallelFor(evaluate_count, [&root_mutex, rollout_limit, this](int32_t) {
+		node_ptr_type selected_leaf;
+		{
+			std::lock_guard<std::mutex> guard{ root_mutex };
+			auto selected_parent = Select();
+			selected_leaf = Expand(selected_parent);
+		}
+		auto score = Rollout(rollout_limit, selected_leaf);
+		{
+			std::lock_guard<std::mutex> guard{ root_mutex };
+			BackPropagation(selected_leaf, score);
+		}
+		});
+	for (auto& task : tasks) {
+		task.get();
+	}
+
+	current_node_ = GetBestChild(current_node_);
+	return current_node_->GetLastMove();
 }
 
 template <typename State, typename Move>
@@ -197,7 +165,7 @@ void MCTS<State, Move>::SetOpponentMove(const Move& opponent_move) {
 }
 
 template <typename State, typename Move>
-typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::Select() const {
+inline typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::Select() const {
     auto selected_node = current_node_;
     while (selected_node->HasPassibleMoves() && selected_node->IsLeaf()) {
         selected_node = GetBestUCBChild(selected_node);
@@ -206,10 +174,11 @@ typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::Select() const {
 }
 
 template <typename State, typename Move>
-typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::Expand(typename MCTS<State, Move>::node_ptr_type& parent) {
-    if (!(parent->HasPassibleMoves())) {
+inline typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::Expand(typename MCTS<State, Move>::node_ptr_type& parent) {
+    if (!parent->HasPassibleMoves()) {
         const auto &available_moves = parent->GetMoves();
         auto idx = RNG::Get()(0, int32_t(available_moves.size() - 1));
+		++max_depth_;
         return parent->MakeChild(available_moves[idx]);
     }
     else if (parent->IsLeaf()) {
@@ -221,7 +190,7 @@ typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::Expand(typename MCT
 }
 
 template <typename State, typename Move>
-double MCTS<State, Move>::Rollout(int32_t rollout_limit, const typename MCTS<State, Move>::node_ptr_type& leaf) {
+inline double MCTS<State, Move>::Rollout(int32_t rollout_limit, const typename MCTS<State, Move>::node_ptr_type& leaf) {
     double total_score = 0.0;
     for (auto i = 0; i < rollout_limit; ++i) {
         auto state = leaf->GetState();
@@ -237,13 +206,36 @@ double MCTS<State, Move>::Rollout(int32_t rollout_limit, const typename MCTS<Sta
 }
 
 template <typename State, typename Move>
-void MCTS<State, Move>::BackPropagation(const typename MCTS<State, Move>::node_ptr_type& leaf, double score) {
+inline void MCTS<State, Move>::BackPropagation(const typename MCTS<State, Move>::node_ptr_type& leaf, double score) {
     leaf->Update(score, visits_);
     auto parent = leaf->GetParent();
+#if 0
     while (parent != nullptr) {
         parent->Update(score, visits_);
         parent = parent->GetParent();
     }
+#else
+	if (!parent) {
+		return;
+	}
+
+	std::vector<node_ptr_type> parents;
+	parents.reserve(max_depth_);
+	parents.push_back(parent);
+
+	while (true) {
+		parent = parent->GetParent();
+		if (parent != nullptr) {
+			parents.push_back(parent);
+		} else {
+			break;
+		}
+	}
+
+	for (auto& parent : parents) {
+		parent->Update(score, visits_);
+	}
+#endif
 }
 
 }
