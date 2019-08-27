@@ -15,27 +15,27 @@ template <typename State, typename Move>
 class MCTS {
 public:
     using node_ptr_type = typename Node<State, Move>::ptr_type;
-	using children_vector_type = std::vector<node_ptr_type>;
+    using children_vector_type = std::vector<node_ptr_type>;
 
     MCTS();
 
-	MCTS(const children_vector_type& children);
+    MCTS(const children_vector_type& children);
 
-	MCTS(const MCTS&) = default;
-	MCTS& operator=(const MCTS &) = default;
+    MCTS(const MCTS&) = default;
+    MCTS& operator=(const MCTS &) = default;
 
     Move Search(int32_t evaluate_count, int32_t rollout_limit);
 
-	Move ParallelSearch(int32_t evaluate_count, int32_t rollout_limit);
+    Move ParallelSearch(int32_t evaluate_count, int32_t rollout_limit);
 
     void SetOpponentMove(const Move& opponent_move);
 
-	node_ptr_type GetCurrentNode() const;
+    node_ptr_type GetCurrentNode() const;
 
-	node_ptr_type GetRoot() const;
+    node_ptr_type GetRoot() const;
 
 private:
-	node_ptr_type GetBestChild(const node_ptr_type& parent) const;
+    node_ptr_type GetBestChild(const node_ptr_type& parent) const;
 
     node_ptr_type GetBestUCBChild(const node_ptr_type& parent) const;
 
@@ -47,8 +47,8 @@ private:
 
     void BackPropagation(const node_ptr_type& leaf, double score);
 
-	std::atomic<int32_t> max_depth_;
-	int64_t visits_;
+    std::atomic<int32_t> max_depth_;
+    int64_t visits_;
     node_ptr_type root_;
     node_ptr_type current_node_;
 };
@@ -56,22 +56,22 @@ private:
 template <typename State, typename Move>
 MCTS<State, Move>::MCTS()
     : max_depth_(0)
-	, visits_(0)
+    , visits_(0)
     , root_(std::make_shared<Node<State, Move>>())
     , current_node_(root_) {
 }
 
 template <typename State, typename Move>
 MCTS<State, Move>::MCTS(const children_vector_type &children)
-	: MCTS() {
-	for (auto child : children) {
-		current_node_->AddChild(child);
-	}
+    : MCTS() {
+    for (auto child : children) {
+        current_node_->AddChild(child);
+    }
 }
 
 template <typename State, typename Move>
 typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::GetRoot() const {
-	return root_;
+    return root_;
 }
 
 template <typename State, typename Move>
@@ -87,23 +87,23 @@ typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::GetBestUCBChild(con
 
 template <typename State, typename Move>
 typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::GetBestChild(const typename MCTS<State, Move>::node_ptr_type& parent) const {
-	auto candidate_node = parent->GetChildren();
-	auto itr = std::max_element(candidate_node.begin(), candidate_node.end(),
-		[](const typename MCTS<State, Move>::node_ptr_type& large, const typename MCTS<State, Move>::node_ptr_type& node) {
-			return ((node->GetScore() / double(node->GetVisits())) > (large->GetScore() / double(large->GetVisits())));
-		});
-	return *itr;
+    auto candidate_node = parent->GetChildren();
+    auto itr = std::max_element(candidate_node.begin(), candidate_node.end(),
+                                [](const typename MCTS<State, Move>::node_ptr_type& large, const typename MCTS<State, Move>::node_ptr_type& node) {
+        return ((node->GetScore() / double(node->GetVisits())) > (large->GetScore() / double(large->GetVisits())));
+    });
+    return *itr;
 }
 
 template <typename State, typename Move>
 typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::GetCurrentNode() const {
-	return current_node_;
+    return current_node_;
 }
 
 template <typename State, typename Move>
 Move MCTS<State, Move>::Search(int32_t evaluate_count, int32_t rollout_limit) {
     visits_ = evaluate_count;
-	max_depth_ = 0;
+    max_depth_ = 0;
 
     for (auto i = 0; i < evaluate_count; ++i) {
         auto selected_parent = Select();
@@ -112,35 +112,35 @@ Move MCTS<State, Move>::Search(int32_t evaluate_count, int32_t rollout_limit) {
         BackPropagation(selected_leaf, score);
     }
 
-	current_node_ = GetBestChild(current_node_);
+    current_node_ = GetBestChild(current_node_);
     return current_node_->GetLastMove();
 }
 
 template <typename State, typename Move>
 Move MCTS<State, Move>::ParallelSearch(int32_t evaluate_count, int32_t rollout_limit) {
-	visits_ = evaluate_count;
-	max_depth_ = 0;
+    visits_ = evaluate_count;
+    max_depth_ = 0;
 
-	std::mutex root_mutex;
-	auto tasks = ParallelFor(evaluate_count, [&root_mutex, rollout_limit, this](int32_t) {
-		node_ptr_type selected_leaf;
-		{
-			std::lock_guard<std::mutex> guard{ root_mutex };
-			auto selected_parent = Select();
-			selected_leaf = Expand(selected_parent);
-		}
-		auto score = Rollout(rollout_limit, selected_leaf);
-		{
-			std::lock_guard<std::mutex> guard{ root_mutex };
-			BackPropagation(selected_leaf, score);
-		}
-		});
-	for (auto& task : tasks) {
-		task.get();
-	}
+    std::mutex root_mutex;
+    auto tasks = ParallelFor(evaluate_count, [&root_mutex, rollout_limit, this](int32_t) {
+        node_ptr_type selected_leaf;
+        {
+            std::lock_guard<std::mutex> guard{ root_mutex };
+            auto selected_parent = Select();
+            selected_leaf = Expand(selected_parent);
+        }
+        auto score = Rollout(rollout_limit, selected_leaf);
+        {
+            std::lock_guard<std::mutex> guard{ root_mutex };
+            BackPropagation(selected_leaf, score);
+        }
+    });
+    for (auto& task : tasks) {
+        task.get();
+    }
 
-	current_node_ = GetBestChild(current_node_);
-	return current_node_->GetLastMove();
+    current_node_ = GetBestChild(current_node_);
+    return current_node_->GetLastMove();
 }
 
 template <typename State, typename Move>
@@ -178,7 +178,7 @@ inline typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::Expand(typen
     if (!parent->HasPassibleMoves()) {
         const auto &available_moves = parent->GetMoves();
         auto idx = RNG::Get()(0, int32_t(available_moves.size() - 1));
-		++max_depth_;
+        ++max_depth_;
         return parent->MakeChild(available_moves[idx]);
     }
     else if (parent->IsLeaf()) {
@@ -215,26 +215,26 @@ inline void MCTS<State, Move>::BackPropagation(const typename MCTS<State, Move>:
         parent = parent->GetParent();
     }
 #else
-	if (!parent) {
-		return;
-	}
+    if (!parent) {
+        return;
+    }
 
-	std::vector<node_ptr_type> parents;
-	parents.reserve(max_depth_);
-	parents.push_back(parent);
+    std::vector<node_ptr_type> parents;
+    parents.reserve(max_depth_);
+    parents.push_back(parent);
 
-	while (true) {
-		parent = parent->GetParent();
-		if (parent != nullptr) {
-			parents.push_back(parent);
-		} else {
-			break;
-		}
-	}
+    while (true) {
+        parent = parent->GetParent();
+        if (parent != nullptr) {
+            parents.push_back(parent);
+        } else {
+            break;
+        }
+    }
 
-	for (auto& parent : parents) {
-		parent->Update(score, visits_);
-	}
+    for (auto& parent : parents) {
+        parent->Update(score, visits_);
+    }
 #endif
 }
 

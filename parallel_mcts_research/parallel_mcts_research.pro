@@ -11,6 +11,7 @@ SOURCES += main.cpp\
 
 INCLUDEPATH += ./thirdparty/rapidjson/include/
 INCLUDEPATH += ./thirdparty/spdlog/include/
+INCLUDEPATH += ./thirdparty/parallel-hashmap/
 
 linux-g++* {
 CONFIG(debug, debug|release) {
@@ -36,6 +37,7 @@ LIBS += -lssl -lcrypto -lpthread \
 HEADERS += \
     rng.h \
     node.h \
+    utility.h \
     ./websocket/websocket_client.h \
     ./websocket/websocket_server.h \
     ./websocket/logger.h \

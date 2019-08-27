@@ -47,7 +47,7 @@ public:
         : session_id_(session_id)
         , ws_(std::move(socket))
         , strand_(boost::asio::make_strand(ioc))
-        , send_queue_(MAX_SEND_QUEUE_SIZE)		
+        , send_queue_(MAX_SEND_QUEUE_SIZE)
         , callback_(callback) {
         InitialStream(ws_);
     }
@@ -76,22 +76,22 @@ public:
     }
 
     void Receive() {
-		ws_.async_read(
-			buffer_,
-			boost::asio::bind_executor(strand_,
-				std::bind(&Session::OnRead, shared_from_this(), std::placeholders::_1, std::placeholders::_2)));
+        ws_.async_read(
+                    buffer_,
+                    boost::asio::bind_executor(strand_,
+                                               std::bind(&Session::OnRead, shared_from_this(), std::placeholders::_1, std::placeholders::_2)));
     }
 
     void Send(const std::string &message) {
         auto buffer(message);
-		boost::beast::net::post(strand_,
-			boost::beast::bind_front_handler(
-				&Session::DoWrite,
-				shared_from_this(),
-				buffer));
+        boost::beast::net::post(strand_,
+                                boost::beast::bind_front_handler(
+                                    &Session::DoWrite,
+                                    shared_from_this(),
+                                    buffer));
     }
 
-	int32_t GetSessionID() const {
+    int32_t GetSessionID() const {
         return session_id_;
     }
 
@@ -111,10 +111,10 @@ private:
 
     void Write() {
         ws_.async_write(
-			boost::beast::net::buffer(&send_queue_.front()[0], send_queue_.front().size()),
-			boost::asio::bind_executor(strand_,
-				std::bind(&Session::OnWrite, shared_from_this(), std::placeholders::_1, std::placeholders::_2)
-                ));
+                    boost::beast::net::buffer(&send_queue_.front()[0], send_queue_.front().size()),
+                boost::asio::bind_executor(strand_,
+                                           std::bind(&Session::OnWrite, shared_from_this(), std::placeholders::_1, std::placeholders::_2)
+                                           ));
     }
 
     void OnWrite(boost::system::error_code ec, std::size_t) {
@@ -158,72 +158,72 @@ private:
         callback_->OnReceive(shared_from_this(), data);
     }
 
-	int32_t session_id_;	
-	boost::beast::websocket::stream<boost::asio::ip::tcp::socket> ws_;
-	boost::asio::strand<boost::asio::io_context::executor_type> strand_;
-	boost::beast::flat_buffer buffer_;
-	boost::circular_buffer<std::string> send_queue_;
-	ServerCallback* callback_;
+    int32_t session_id_;
+    boost::beast::websocket::stream<boost::asio::ip::tcp::socket> ws_;
+    boost::asio::strand<boost::asio::io_context::executor_type> strand_;
+    boost::beast::flat_buffer buffer_;
+    boost::circular_buffer<std::string> send_queue_;
+    ServerCallback* callback_;
 };
 
 class Listener : public std::enable_shared_from_this<Listener> {
 public:
-	Listener(ServerCallback* callback, const std::string& server_ver, boost::asio::io_context& ioc);
+    Listener(ServerCallback* callback, const std::string& server_ver, boost::asio::io_context& ioc);
 
-	Listener(ServerCallback* callback, const std::string& server_ver, boost::asio::io_context& ioc, boost::asio::ip::tcp::endpoint endpoint);
+    Listener(ServerCallback* callback, const std::string& server_ver, boost::asio::io_context& ioc, boost::asio::ip::tcp::endpoint endpoint);
 
-	void Bind(boost::asio::ip::tcp::endpoint endpoint);
+    void Bind(boost::asio::ip::tcp::endpoint endpoint);
 
-	void Listen();
+    void Listen();
 
-	void Boardcast(const std::string& messag);
+    void Boardcast(const std::string& messag);
 
-	void BoardcastExcept(const std::string& message, int32_t except_session_id);
+    void BoardcastExcept(const std::string& message, int32_t except_session_id);
 
-	void SentTo(int32_t session_id, const std::string& message);
+    void SentTo(int32_t session_id, const std::string& message);
 
-	void Run();
+    void Run();
 
-	void RemoveSession(int32_t session_id);
+    void RemoveSession(int32_t session_id);
 
-	void SetBinaryFormat(bool enable = true);
+    void SetBinaryFormat(bool enable = true);
 private:
-	void DoAccept();
+    void DoAccept();
 
-	void OnAccept(boost::system::error_code ec, boost::asio::ip::tcp::socket socket);
+    void OnAccept(boost::system::error_code ec, boost::asio::ip::tcp::socket socket);
 
-	bool is_binray_;
-	boost::asio::io_context& ioc_;
-	boost::asio::ip::tcp::acceptor acceptor_;
-	std::mutex mutex_;
-	ServerCallback* callback_;
-	phmap::flat_hash_map<int32_t, std::shared_ptr<Session>> sessions_;
-	std::string server_ver_;
+    bool is_binray_;
+    boost::asio::io_context& ioc_;
+    boost::asio::ip::tcp::acceptor acceptor_;
+    std::mutex mutex_;
+    ServerCallback* callback_;
+    phmap::flat_hash_map<int32_t, std::shared_ptr<Session>> sessions_;
+    std::string server_ver_;
 };
 
 class WebSocketServer : public ServerCallback {
 public:
-	WebSocketServer(const std::string& server_ver, uint32_t max_thread = std::thread::hardware_concurrency());
+    WebSocketServer(const std::string& server_ver, uint32_t max_thread = std::thread::hardware_concurrency());
 
-	virtual ~WebSocketServer();
+    virtual ~WebSocketServer();
 
-	void Bind(boost::asio::ip::tcp::endpoint endpoint);
+    void Bind(boost::asio::ip::tcp::endpoint endpoint);
 
-	void Listen();
+    void Listen();
 
-	void Bind(const std::string& addr, uint16_t port);
+    void Bind(const std::string& addr, uint16_t port);
 
-	void Boardcast(const std::string& message);
+    void Boardcast(const std::string& message);
 
-	void SentTo(int32_t session_id, const std::string& message);
+    void SentTo(int32_t session_id, const std::string& message);
 
-	void BoardcastExcept(const std::string& message, int32_t except_session_id);
+    void BoardcastExcept(const std::string& message, int32_t except_session_id);
 
-	void Run();
+    void Run();
 
-	void RemoveSession(const std::shared_ptr<Session>& session);
+    void RemoveSession(const std::shared_ptr<Session>& session);
 private:
-	void WaitAllThreadDone();
+    void WaitAllThreadDone();
 
     uint32_t max_thread_;
     boost::beast::net::io_context ioc_;

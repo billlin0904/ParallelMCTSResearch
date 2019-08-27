@@ -24,20 +24,20 @@ public:
     using parent_ptr_type = WeakPtr<State, Move>;
 
     Node(const State& state = State(),
-		const Move& move = Move(),
-		NodePtr<State, Move> parent = nullptr)
+         const Move& move = Move(),
+         NodePtr<State, Move> parent = nullptr)
         : player_id_(state.GetPlayerID())
-		, score_(0)
-		, visits_(0)
-		, state_(state)
+        , score_(0)
+        , visits_(0)
+        , state_(state)
         , move_(move)
         , parent_(parent)
         , possible_moves_(state.GetLegalMoves()) {
     }
 
-	void AddChild(const ptr_type &child) {
-		children_.push_back(child);
-	}
+    void AddChild(const ptr_type &child) {
+        children_.push_back(child);
+    }
 
     ptr_type MakeChild(const Move &next_move) {
         State next_state(state_);
@@ -74,7 +74,7 @@ public:
         return score_;
     }
 
-	int64_t GetVisits() const noexcept {
+    int64_t GetVisits() const noexcept {
         return visits_;
     }
 
@@ -102,33 +102,33 @@ public:
         return parent_.lock();
     }
 
-	size_t GetChildrenSize() const noexcept {
-		return children_.size();
-	}
+    size_t GetChildrenSize() const noexcept {
+        return children_.size();
+    }
 
-	double GetUCB() const noexcept {
-		return (GetScore() / GetVisits())
-			+ UCBConstant() * std::sqrt(std::log(double(GetVisits())))
-			/ double(GetVisits());
-	}
+    double GetUCB() const noexcept {
+        return (GetScore() / GetVisits())
+                + UCBConstant() * std::sqrt(std::log(double(GetVisits())))
+                / double(GetVisits());
+    }
 
 private:
-	static double UCBConstant() noexcept {
-		static const double ucb = std::sqrt(2.0);
-		return ucb;
-	}
+    static double UCBConstant() noexcept {
+        static const double ucb = std::sqrt(2.0);
+        return ucb;
+    }
 
     void RemoveMove(const Move& move) {
-		possible_moves_.erase(
-			std::remove(possible_moves_.begin(), possible_moves_.end(), move),
-			possible_moves_.end());
+        possible_moves_.erase(
+                    std::remove(possible_moves_.begin(), possible_moves_.end(), move),
+                    possible_moves_.end());
     }
     
     int8_t player_id_;
     double score_;
     int64_t visits_;
-	State state_;
-	Move move_;
+    State state_;
+    Move move_;
     parent_ptr_type parent_;
     std::vector<ptr_type> children_;
     std::vector<Move> possible_moves_;

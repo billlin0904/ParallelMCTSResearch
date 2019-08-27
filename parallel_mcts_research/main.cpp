@@ -35,9 +35,9 @@ public:
     int8_t column;
 
     std::string ToString() const {
-		char buffer[16] = { 0 };
-		snprintf(buffer, 16, "%d,%d", row, column);
-		return buffer;
+        char buffer[16] = { 0 };
+        snprintf(buffer, 16, "%d,%d", row, column);
+        return buffer;
     }
 
 private:
@@ -60,11 +60,11 @@ public:
         , player_id_(1)
         , remain_move_(MAX_WIDTH * MAX_HEIGHT)
         , board_(MAX_HEIGHT) {
-		legal_moves_.reserve(MAX_WIDTH * MAX_HEIGHT);
+        legal_moves_.reserve(MAX_WIDTH * MAX_HEIGHT);
         for (auto row = 0; row < MAX_WIDTH; ++row) {
             for (auto col = 0; col < MAX_HEIGHT; ++col) {
                 board_[row].push_back(EMPTY);
-				legal_moves_.emplace_back(row, col);
+                legal_moves_.emplace_back(row, col);
             }
         }
     }
@@ -89,11 +89,11 @@ public:
             board_[move.row][move.column] = PLAYER2;
         }
 
-		legal_moves_.erase(
-			std::remove(legal_moves_.begin(), legal_moves_.end(), move),
-			legal_moves_.end());
+        legal_moves_.erase(
+                    std::remove(legal_moves_.begin(), legal_moves_.end(), move),
+                    legal_moves_.end());
         
-		--remain_move_;
+        --remain_move_;
         if (CheckWinner(move) != EMPTY) {
             winner_exists_ = true;
             is_terminal_ = true;
@@ -130,13 +130,13 @@ public:
     }
 
     bool IsLegalMove(const GomokuGameMove& move) const {
-		assert(move.row < MAX_WIDTH && move.column < MAX_HEIGHT);
-		assert(!is_terminal_ && !winner_exists_);
+        assert(move.row < MAX_WIDTH && move.column < MAX_HEIGHT);
+        assert(!is_terminal_ && !winner_exists_);
         return board_[move.row][move.column] == EMPTY;
     }
 
     const std::vector<GomokuGameMove>& GetLegalMoves() const noexcept {
-		return legal_moves_;
+        return legal_moves_;
     }
 
     std::string ToString() const {
@@ -154,16 +154,16 @@ public:
             for (auto col = 0; col < MAX_HEIGHT; ++col) {
                 if (board_[row][col] != EMPTY) {
                     if (Count(board_[row][col], row, col, 1, 0) >= 5) {
-						return board_[row][col];
+                        return board_[row][col];
                     }
                     if (Count(board_[row][col], row, col, 0, 1) >= 5) {
-						return board_[row][col];
+                        return board_[row][col];
                     }
                     if (Count(board_[row][col], row, col, 1, -1) >= 5) {
-						return board_[row][col];
+                        return board_[row][col];
                     }
                     if (Count(board_[row][col], row, col, 1, 1) >= 5) {
-						return board_[row][col];
+                        return board_[row][col];
                     }
                 }
             }
@@ -172,23 +172,23 @@ public:
     }
 
 private:
-	int8_t CheckWinner(const GomokuGameMove& move) const noexcept {
-		if (board_[move.row][move.column] != EMPTY) {
-			if (Count(board_[move.row][move.column], move.row, move.column, 1, 0) >= 5) {
-				return board_[move.row][move.column];
-			}
-			if (Count(board_[move.row][move.column], move.row, move.column, 0, 1) >= 5) {
-				return board_[move.row][move.column];
-			}
-			if (Count(board_[move.row][move.column], move.row, move.column, 1, -1) >= 5) {
-				return board_[move.row][move.column];
-			}
-			if (Count(board_[move.row][move.column], move.row, move.column, 1, 1) >= 5) {
-				return board_[move.row][move.column];
-			}
-		}
-		return EMPTY;
-	}
+    int8_t CheckWinner(const GomokuGameMove& move) const noexcept {
+        if (board_[move.row][move.column] != EMPTY) {
+            if (Count(board_[move.row][move.column], move.row, move.column, 1, 0) >= 5) {
+                return board_[move.row][move.column];
+            }
+            if (Count(board_[move.row][move.column], move.row, move.column, 0, 1) >= 5) {
+                return board_[move.row][move.column];
+            }
+            if (Count(board_[move.row][move.column], move.row, move.column, 1, -1) >= 5) {
+                return board_[move.row][move.column];
+            }
+            if (Count(board_[move.row][move.column], move.row, move.column, 1, 1) >= 5) {
+                return board_[move.row][move.column];
+            }
+        }
+        return EMPTY;
+    }
 
     int8_t Count(int8_t player, int32_t row, int32_t col, int32_t dirX, int32_t dirY) const noexcept {
         auto ct = 1;
@@ -228,7 +228,7 @@ private:
     int8_t player_id_;
     int32_t remain_move_;
     GomokuGameMove last_move_;
-	std::vector<GomokuGameMove> legal_moves_;
+    std::vector<GomokuGameMove> legal_moves_;
     std::vector<std::vector<int8_t>> board_;
 };
 
@@ -307,7 +307,7 @@ struct Encoder {
         packet.AddMember("move", game_move, document.GetAllocator());
         document.SetObject();
         document.AddMember("packet", packet, document.GetAllocator());
-		//Serialize(mcts, document);
+        //Serialize(mcts, document);
         return GetJsonString(document);
     }
 
@@ -338,11 +338,11 @@ public:
     GomokuRoom(int32_t room_id, WebSocketServer *server)
         : room_id_(room_id)
         , round_id_(NewRoundID())
-		, round_count_(1)
+        , round_count_(1)
         , server_(server)
-		, logger_(Logger::Get().GetLogger("GomokuRoom")) {
-		win_statis_[PLAYER1] = 0;
-		win_statis_[PLAYER2] = 0;
+        , logger_(Logger::Get().GetLogger("GomokuRoom")) {
+        win_statis_[PLAYER1] = 0;
+        win_statis_[PLAYER2] = 0;
     }
 
     void EnterRoom(int32_t session_id, bool is_watch) {
@@ -365,15 +365,15 @@ public:
         auto pid = NewPacketID();
         auto msg = Encoder::StartRound(room_id_, round_id_, pid);
         server_->SentTo(session_id, msg);
-        BoardcastWatchers(msg);		
+        BoardcastWatchers(msg);
 
-		logger_->debug("Round:{} O Win: {}({}%), @¡@Win: {}({}%)",
-			round_count_,
-			win_statis_[PLAYER1], win_statis_[PLAYER1] / double(round_count_),
-			win_statis_[PLAYER2], win_statis_[PLAYER2] / double(round_count_));
+        logger_->debug("Round:{} O Win: {}({}%), @¡@Win: {}({}%)",
+                       round_count_,
+                       win_statis_[PLAYER1], win_statis_[PLAYER1] / double(round_count_),
+                       win_statis_[PLAYER2], win_statis_[PLAYER2] / double(round_count_));
         logger_->debug("Server send NewRound pid: {} round id:{}.", pid, round_id_);
 
-		++round_count_;
+        ++round_count_;
     }
 
     void SetOpponentMove(const GomokuGameMove &move) {
@@ -387,28 +387,28 @@ public:
         BoardcastWatchers(msg);
     }
 
-	int32_t GetRoundID() const {
-		return round_id_;
-	}
+    int32_t GetRoundID() const {
+        return round_id_;
+    }
 
-    void Turn(int32_t session_id, const GomokuGameMove& move) {        
+    void Turn(int32_t session_id, const GomokuGameMove& move) {
         assert(state_->IsLegalMove(move));
         if (!IsPlayerTurn(session_id)) {
             return;
         }
         if (IsTerminal()) {
-			++win_statis_[state_->GetWinner()];
+            ++win_statis_[state_->GetWinner()];
             NewRound(session_id);
             return;
         }
         SetOpponentMove(move);
-		if (!IsTerminal()) {
-			Turn(session_id);
-		}
-		if (IsTerminal()) {
-			++win_statis_[state_->GetWinner()];
-			NewRound(session_id);
-		}
+        if (!IsTerminal()) {
+            Turn(session_id);
+        }
+        if (IsTerminal()) {
+            ++win_statis_[state_->GetWinner()];
+            NewRound(session_id);
+        }
     }
 
     int32_t GetPlayerCount() const {
@@ -425,7 +425,7 @@ private:
 #ifdef _DEBUG
         auto move = ai_->ParallelSearch(30, 30);
 #else
-        auto move = ai_->ParallelSearch(10000, 8000);
+        auto move = ai_->ParallelSearch(100, 8000);
 #endif        
         state_->ApplyMove(move);
         std::cout << "Server move: " << move.ToString() << std::endl << *state_;
@@ -447,17 +447,17 @@ private:
 
     void BoardcastWatchers(const std::string& message) {
         for (auto session_id : watchers_) {
-			logger_->debug("Boardcast session id: {}.", session_id);
+            logger_->debug("Boardcast session id: {}.", session_id);
             server_->SentTo(session_id, message);
         }
     }
     int32_t room_id_;
     int32_t round_id_;
-	int32_t round_count_;
+    int32_t round_count_;
     websocket::WebSocketServer* server_;
-	phmap::flat_hash_map<int8_t, int32_t> win_statis_;
-	phmap::flat_hash_set<int32_t> players_;
-	phmap::flat_hash_set<int32_t> watchers_;
+    phmap::flat_hash_map<int8_t, int32_t> win_statis_;
+    phmap::flat_hash_set<int32_t> players_;
+    phmap::flat_hash_set<int32_t> watchers_;
     std::unique_ptr<MCTS<GomokuGameState, GomokuGameMove>> ai_;
     std::unique_ptr<GomokuGameState> state_;
     std::shared_ptr<spdlog::logger> logger_;
@@ -467,9 +467,9 @@ class GomokuGameServer : public WebSocketServer {
 public:
     GomokuGameServer()
         : WebSocketServer("Gomoku GameServer/1.0") {
-		Logger::Get()
-			.AddDebugOutputLogger()
-			.AddFileLogger("gomoku.log");
+        Logger::Get()
+                .AddDebugOutputLogger()
+                .AddFileLogger("gomoku.log");
         logger_ = websocket::Logger::Get().GetLogger("GomokuRoom");
     }
 
@@ -479,11 +479,11 @@ public:
     }
 
     void OnDisconnected(std::shared_ptr<websocket::Session> s) override {
-		onClose(s);
+        onClose(s);
     }
 
     void Leave(int32_t room_id, int32_t session_id) {
-		std::lock_guard<std::mutex> guard{ mutex_ };
+        std::lock_guard<std::mutex> guard{ mutex_ };
         auto itr = room_.find(room_id);
         if (itr == room_.end()) {
             return;
@@ -500,55 +500,55 @@ public:
     }
 
     void OnReceive(std::shared_ptr<websocket::Session> s, const std::string& str) override {
-		OnRequest(s->GetSessionID(), str);
+        OnRequest(s->GetSessionID(), str);
         s->Receive();
     }
 
     void OnError(std::shared_ptr<websocket::Session> s, const websocket::Exception &e) override {
-		logger_->debug("Session id:{} {}", s->GetSessionID(), e.what());
-		onClose(s);
+        logger_->debug("Session id:{} {}", s->GetSessionID(), e.what());
+        onClose(s);
     }
 private:
-	void onClose(const std::shared_ptr<websocket::Session> &s) {
-		std::lock_guard<std::mutex> guard{ mutex_ };
-		auto itr = session_room_.find(s->GetSessionID());
-		if (itr != session_room_.end()) {
-			Leave((*itr).second, s->GetSessionID());
-		}
-		logger_->debug("Session id: {} disconnected!", s->GetSessionID());
-		RemoveSession(s);
-	}
+    void onClose(const std::shared_ptr<websocket::Session> &s) {
+        std::lock_guard<std::mutex> guard{ mutex_ };
+        auto itr = session_room_.find(s->GetSessionID());
+        if (itr != session_room_.end()) {
+            Leave((*itr).second, s->GetSessionID());
+        }
+        logger_->debug("Session id: {} disconnected!", s->GetSessionID());
+        RemoveSession(s);
+    }
 
-	void OnRequest(int32_t session_id, const std::string& str) {
-		Document document;
-		document.Parse(str);
+    void OnRequest(int32_t session_id, const std::string& str) {
+        Document document;
+        document.Parse(str);
 
-		if (document.HasParseError()) {
-			return;
-		}
+        if (document.HasParseError()) {
+            return;
+        }
 
-		const auto& packet = document["packet"];
-		auto cmd = static_cast<CommandID>(packet["cmd"].GetInt());
+        const auto& packet = document["packet"];
+        auto cmd = static_cast<CommandID>(packet["cmd"].GetInt());
 
-		std::lock_guard<std::mutex> guard{ mutex_ };
-		auto itr = session_room_.find(session_id);
+        std::lock_guard<std::mutex> guard{ mutex_ };
+        auto itr = session_room_.find(session_id);
 
-		switch (cmd) {
-		case CommandID::ENTER_ROOM:
-			OnEnterRoom(packet, session_id, itr);
-			break;
-		case CommandID::TURN:
-			OnTurn(packet, session_id, (*itr).second);
-			break;
-		case CommandID::START_ROUND:
-		default:
-			break;
-		}
-	}
+        switch (cmd) {
+        case CommandID::ENTER_ROOM:
+            OnEnterRoom(packet, session_id, itr);
+            break;
+        case CommandID::TURN:
+            OnTurn(packet, session_id, (*itr).second);
+            break;
+        case CommandID::START_ROUND:
+        default:
+            break;
+        }
+    }
 
     void OnEnterRoom(const Value &packet,
-		int32_t seesion_id,
-		phmap::flat_hash_map<int32_t, int32_t>::iterator itr) {
+                     int32_t seesion_id,
+                     phmap::flat_hash_map<int32_t, int32_t>::iterator itr) {
         bool is_watch = false;
 
         if (packet.HasMember("is_watch")) {
@@ -592,13 +592,13 @@ private:
         }
         const GomokuGameMove move(packet["move"]["row"].GetInt(), packet["move"]["column"].GetInt());
         logger_->debug("Server receive client move: {} pid: {}.", move.ToString(), packet["pid"].GetInt());
-		assert(packet["round_id"].GetInt() == (*itr).second->GetRoundID());
+        assert(packet["round_id"].GetInt() == (*itr).second->GetRoundID());
         (*itr).second->Turn(seesion_id, move);
     }
 
-	std::mutex mutex_;
-	phmap::flat_hash_map<int32_t, int32_t> session_room_;
-	phmap::flat_hash_map<int32_t, std::unique_ptr<GomokuRoom>> room_;
+    std::mutex mutex_;
+    phmap::flat_hash_map<int32_t, int32_t> session_room_;
+    phmap::flat_hash_map<int32_t, std::unique_ptr<GomokuRoom>> room_;
     std::shared_ptr<spdlog::logger> logger_;
 };
 
@@ -607,7 +607,7 @@ public:
     GomokuGameClientCallback()
         : room_id_(0)
         , round_id_(0)
-		, logger_(Logger::Get().GetLogger("GomokuRoom")) {
+        , logger_(Logger::Get().GetLogger("GomokuRoom")) {
     }
 
     void OnConnected(std::shared_ptr<WebSocketClient> s) override {
@@ -616,7 +616,7 @@ public:
         s->Receive();
     }
 
-    void OnDisconnected(std::shared_ptr<WebSocketClient> s) override {
+    void OnDisconnected(std::shared_ptr<WebSocketClient>) override {
     }
 
     void OnSend(std::shared_ptr<WebSocketClient>) override {
@@ -708,7 +708,7 @@ private:
             auto pid = NewPacketID();
             s->Send(Encoder::Turn(search_move, *state_, *ai_, room_id_, round_id_, pid));
             logger_->debug("Client send Turn round_id: {} pid: {}", round_id_, pid);
-			std::cout << "Client move: " << move.ToString() << std::endl << *state_;
+            std::cout << "Client move: " << move.ToString() << std::endl << *state_;
         }
     }
 
@@ -736,25 +736,25 @@ int main() {
     }
 
 #ifdef _DEBUG
-	const int32_t MAX_CLIENT = 1;
+    const int32_t MAX_CLIENT = 1;
 #else
-	const int32_t MAX_CLIENT = 1;
+    const int32_t MAX_CLIENT = 1;
 #endif
     const auto scheme = "ws";
     const auto host = "127.0.0.1";
     const auto port = "9090";
-	std::vector<std::shared_ptr<WebSocketClient>> clients;
-	clients.reserve(MAX_CLIENT);
-	for (auto i = 0; i < MAX_CLIENT; ++i) {
-		auto ws = WebSocketClient::MakeSocket(
-			scheme,
-			host,
-			port,
-			ios,
-			new GomokuGameClientCallback());
-		ws->Connect();
-		clients.push_back(ws);
-	}
+    std::vector<std::shared_ptr<WebSocketClient>> clients;
+    clients.reserve(MAX_CLIENT);
+    for (auto i = 0; i < MAX_CLIENT; ++i) {
+        auto ws = WebSocketClient::MakeSocket(
+                    scheme,
+                    host,
+                    port,
+                    ios,
+                    new GomokuGameClientCallback());
+        ws->Connect();
+        clients.push_back(ws);
+    }
     server.Run();
 #else
     std::map<int8_t, size_t> stats;
