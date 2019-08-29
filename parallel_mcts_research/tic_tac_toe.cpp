@@ -167,6 +167,9 @@ void RunGame() {
 		MCTS<TicTacToeGameState, TicTacToeGameMove> ai2;
 		TicTacToeGameState game;
 
+		ai1.Initial(100, 100);
+		ai2.Initial(100, 100);
+
 		while (!game.IsTerminal()) {
 			if (game.GetPlayerID() == 1) {
 				/*
@@ -185,14 +188,14 @@ void RunGame() {
 				}
 				*/
 
-				auto move = ai2.Search(100, 100);
+				auto move = ai2.Search();
 				assert(game.IsLegalMove(move));
 				//std::cout << "AI2 turn!" << "\n";
 				game.ApplyMove(move);
 				ai1.SetOpponentMove(move);
 			}
 			else {
-				auto move = ai1.Search(100, 100);
+				auto move = ai1.Search();
 				assert(game.IsLegalMove(move));
 				//std::cout << "AI1 turn!" << "\n";
 				game.ApplyMove(move);

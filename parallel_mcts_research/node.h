@@ -7,25 +7,53 @@
 
 namespace mcts {
 
-template <typename State, typename Move>
+template <typename State, typename Move, typename UCB1Policy>
 class Node;
 
-template <typename State, typename Move>
-using NodePtr = std::shared_ptr<Node<State, Move>>;
+template <typename State, typename Move, typename UCB1Policy>
+using NodePtr = std::shared_ptr<Node<State, Move, UCB1Policy>>;
 
-template <typename State, typename Move>
-using WeakPtr = std::weak_ptr<Node<State, Move>>;
+template <typename State, typename Move, typename UCB1Policy>
+using WeakPtr = std::weak_ptr<Node<State, Move, UCB1Policy>>;
 
-template <typename State, typename Move>
-class Node : public std::enable_shared_from_this<Node<State, Move>> {
+struct EBO { };
+
+// Upper Confidence Bounds
+struct DefaultUCB1Policy : public EBO {
+	double operator()(double score, int64_t visits) const {
+		return (score / visits)
+			+ DefaultConstant() * std::sqrt(std::log(double(visits)))
+			/ double(visits);
+	}
+
+	static double DefaultConstant() noexcept {
+		static const auto c = std::sqrt(2.0);
+		return c;
+	}
+};
+
+// UCB1Tuned
+struct UCB1Tuned : public EBO {
+	double operator()(double score, int64_t visits) const {
+		static const auto MAX_BERNOULLI_RANDOM_VARIABLE_VARIANCE = 0.25;
+		double variance = MAX_BERNOULLI_RANDOM_VARIABLE_VARIANCE;
+		return (score / visits)
+			+ std::sqrt(std::log(visits) / visits)
+			* (std::min)(MAX_BERNOULLI_RANDOM_VARIABLE_VARIANCE,
+				variance + std::sqrt(2.0 * std::log(visits) / visits));
+	}	
+};
+
+template <typename State, typename Move, typename UCB1Policy>
+class Node : public std::enable_shared_from_this<Node<State, Move, UCB1Policy>> {
 public:
-    using self_type = Node<State, Move>;
-    using ptr_type = NodePtr<State, Move>;
-    using parent_ptr_type = WeakPtr<State, Move>;
+    using self_type = Node<State, Move, UCB1Policy>;
+    using ptr_type = NodePtr<State, Move, UCB1Policy>;
+    using parent_ptr_type = WeakPtr<State, Move, UCB1Policy>;
 
     Node(const State& state = State(),
          const Move& move = Move(),
-         NodePtr<State, Move> parent = nullptr)
+         NodePtr<State, Move, UCB1Policy> parent = nullptr)
         : player_id_(state.GetPlayerID())
         , score_(0)
         , visits_(0)
@@ -106,18 +134,11 @@ public:
         return children_.size();
     }
 
-    double GetUCB() const noexcept {
-        return (GetScore() / GetVisits())
-                + UCBConstant() * std::sqrt(std::log(double(GetVisits())))
-                / double(GetVisits());
+	double GetUCB() const noexcept {
+		return ucb1_policy_(GetScore(), GetVisits());
     }
 
 private:
-    static double UCBConstant() noexcept {
-        static const double ucb = std::sqrt(2.0);
-        return ucb;
-    }
-
     void RemoveMove(const Move& move) {
         possible_moves_.erase(
                     std::remove(possible_moves_.begin(), possible_moves_.end(), move),
@@ -130,6 +151,7 @@ private:
     State state_;
     Move move_;
     parent_ptr_type parent_;
+	UCB1Policy ucb1_policy_;
     std::vector<ptr_type> children_;
     std::vector<Move> possible_moves_;
 };

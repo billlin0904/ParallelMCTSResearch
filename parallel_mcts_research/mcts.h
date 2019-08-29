@@ -11,22 +11,25 @@
 
 namespace mcts {
 
-template <typename State, typename Move>
+template <typename State, typename Move, typename UCB1Policy = UCB1Tuned>
 class MCTS {
 public:
-    using node_ptr_type = typename Node<State, Move>::ptr_type;
+	using node_type = Node<State, Move, UCB1Policy>;
+    using node_ptr_type = typename Node<State, Move, UCB1Policy>::ptr_type;
     using children_vector_type = std::vector<node_ptr_type>;
 
-    MCTS();
+    MCTS(int32_t evaluate_count = 64, int32_t rollout_limit = 128);
 
-    MCTS(const children_vector_type& children);
+    explicit MCTS(const State& state, int32_t evaluate_count = 64, int32_t rollout_limit = 128);
 
     MCTS(const MCTS&) = default;
     MCTS& operator=(const MCTS &) = default;
 
-    Move Search(int32_t evaluate_count, int32_t rollout_limit);
+	void Initial(int32_t evaluate_count, int32_t rollout_limit);
 
-    Move ParallelSearch(int32_t evaluate_count, int32_t rollout_limit);
+    Move Search();
+
+    Move ParallelSearch();
 
     void SetOpponentMove(const Move& opponent_move);
 
@@ -47,35 +50,44 @@ private:
 
     void BackPropagation(const node_ptr_type& leaf, double score);
 
-    std::atomic<int32_t> max_depth_;
+	int32_t evaluate_count_;
+	int32_t rollout_limit_;
     int64_t visits_;
     node_ptr_type root_;
     node_ptr_type current_node_;
 };
 
-template <typename State, typename Move>
-MCTS<State, Move>::MCTS()
-    : max_depth_(0)
-    , visits_(0)
-    , root_(std::make_shared<Node<State, Move>>())
+template <typename State, typename Move, typename UCB1Policy>
+MCTS<State, Move, UCB1Policy>::MCTS(int32_t evaluate_count, int32_t rollout_limit)
+    : evaluate_count_(evaluate_count)
+	, rollout_limit_(rollout_limit)
+	, visits_(0)
+    , root_(std::make_shared<Node<State, Move, UCB1Policy>>())
     , current_node_(root_) {
 }
 
-template <typename State, typename Move>
-MCTS<State, Move>::MCTS(const children_vector_type &children)
-    : MCTS() {
-    for (auto child : children) {
-        current_node_->AddChild(child);
-    }
+template <typename State, typename Move, typename UCB1Policy>
+MCTS<State, Move, UCB1Policy>::MCTS(const State &state, int32_t evaluate_count, int32_t rollout_limit)
+	: evaluate_count_(evaluate_count)	
+	, rollout_limit_(rollout_limit)
+	, visits_(0)
+	, root_(std::make_shared<Node<State, Move, UCB1Policy>>(state))
+	, current_node_(root_) {
 }
 
-template <typename State, typename Move>
-typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::GetRoot() const {
+template <typename State, typename Move, typename UCB1Policy>
+void MCTS<State, Move, UCB1Policy>::Initial(int32_t evaluate_count, int32_t rollout_limit) {
+	evaluate_count_ = evaluate_count;
+	rollout_limit_ = rollout_limit;
+}
+
+template <typename State, typename Move, typename UCB1Policy>
+typename MCTS<State, Move, UCB1Policy>::node_ptr_type MCTS<State, Move, UCB1Policy>::GetRoot() const {
     return root_;
 }
 
-template <typename State, typename Move>
-typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::GetBestUCBChild(const typename MCTS<State, Move>::node_ptr_type& parent) const {
+template <typename State, typename Move, typename UCB1Policy>
+typename MCTS<State, Move, UCB1Policy>::node_ptr_type MCTS<State, Move, UCB1Policy>::GetBestUCBChild(const typename MCTS<State, Move, UCB1Policy>::node_ptr_type& parent) const {
     const auto& children = parent->GetChildren();
     auto itr = std::max_element(children.begin(), children.end(), [this](
                                 const typename MCTS<State, Move>::node_ptr_type &first,
@@ -85,8 +97,8 @@ typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::GetBestUCBChild(con
     return *itr;
 }
 
-template <typename State, typename Move>
-typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::GetBestChild(const typename MCTS<State, Move>::node_ptr_type& parent) const {
+template <typename State, typename Move, typename UCB1Policy>
+typename MCTS<State, Move, UCB1Policy>::node_ptr_type MCTS<State, Move, UCB1Policy>::GetBestChild(const typename MCTS<State, Move, UCB1Policy>::node_ptr_type& parent) const {
     auto candidate_node = parent->GetChildren();
     auto itr = std::max_element(candidate_node.begin(), candidate_node.end(),
                                 [](const typename MCTS<State, Move>::node_ptr_type& large, const typename MCTS<State, Move>::node_ptr_type& node) {
@@ -95,20 +107,19 @@ typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::GetBestChild(const 
     return *itr;
 }
 
-template <typename State, typename Move>
-typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::GetCurrentNode() const {
+template <typename State, typename Move, typename UCB1Policy>
+typename MCTS<State, Move, UCB1Policy>::node_ptr_type MCTS<State, Move, UCB1Policy>::GetCurrentNode() const {
     return current_node_;
 }
 
-template <typename State, typename Move>
-Move MCTS<State, Move>::Search(int32_t evaluate_count, int32_t rollout_limit) {
-    visits_ = evaluate_count;
-    max_depth_ = 0;
+template <typename State, typename Move, typename UCB1Policy>
+Move MCTS<State, Move, UCB1Policy>::Search() {
+    visits_ = evaluate_count_;
 
-    for (auto i = 0; i < evaluate_count; ++i) {
+    for (auto i = 0; i < evaluate_count_; ++i) {
         auto selected_parent = Select();
         auto selected_leaf = Expand(selected_parent);
-        auto score = Rollout(rollout_limit, selected_leaf);
+        auto score = Rollout(rollout_limit_, selected_leaf);
         BackPropagation(selected_leaf, score);
     }
 
@@ -116,20 +127,19 @@ Move MCTS<State, Move>::Search(int32_t evaluate_count, int32_t rollout_limit) {
     return current_node_->GetLastMove();
 }
 
-template <typename State, typename Move>
-Move MCTS<State, Move>::ParallelSearch(int32_t evaluate_count, int32_t rollout_limit) {
-    visits_ = evaluate_count;
-    max_depth_ = 0;
+template <typename State, typename Move, typename UCB1Policy>
+Move MCTS<State, Move, UCB1Policy>::ParallelSearch() {
+    visits_ = evaluate_count_;
 
     std::mutex root_mutex;
-    auto tasks = ParallelFor(evaluate_count, [&root_mutex, rollout_limit, this](int32_t) {
+    auto tasks = ParallelFor(evaluate_count_, [&root_mutex, this](int32_t) {
         node_ptr_type selected_leaf;
         {
             std::lock_guard<std::mutex> guard{ root_mutex };
             auto selected_parent = Select();
             selected_leaf = Expand(selected_parent);
         }
-        auto score = Rollout(rollout_limit, selected_leaf);
+        auto score = Rollout(rollout_limit_, selected_leaf);
         {
             std::lock_guard<std::mutex> guard{ root_mutex };
             BackPropagation(selected_leaf, score);
@@ -143,8 +153,8 @@ Move MCTS<State, Move>::ParallelSearch(int32_t evaluate_count, int32_t rollout_l
     return current_node_->GetLastMove();
 }
 
-template <typename State, typename Move>
-void MCTS<State, Move>::SetOpponentMove(const Move& opponent_move) {
+template <typename State, typename Move, typename UCB1Policy>
+void MCTS<State, Move, UCB1Policy>::SetOpponentMove(const Move& opponent_move) {
     const auto& available_moves = current_node_->GetMoves();
     auto itr = std::find(available_moves.cbegin(),
                          available_moves.cend(),
@@ -164,8 +174,8 @@ void MCTS<State, Move>::SetOpponentMove(const Move& opponent_move) {
     }
 }
 
-template <typename State, typename Move>
-inline typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::Select() const {
+template <typename State, typename Move, typename UCB1Policy>
+inline typename MCTS<State, Move, UCB1Policy>::node_ptr_type MCTS<State, Move, UCB1Policy>::Select() const {
     auto selected_node = current_node_;
     while (selected_node->HasPassibleMoves() && selected_node->IsLeaf()) {
         selected_node = GetBestUCBChild(selected_node);
@@ -173,12 +183,11 @@ inline typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::Select() con
     return selected_node;
 }
 
-template <typename State, typename Move>
-inline typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::Expand(typename MCTS<State, Move>::node_ptr_type& parent) {
+template <typename State, typename Move, typename UCB1Policy>
+inline typename MCTS<State, Move, UCB1Policy>::node_ptr_type MCTS<State, Move, UCB1Policy>::Expand(typename MCTS<State, Move, UCB1Policy>::node_ptr_type& parent) {
     if (!parent->HasPassibleMoves()) {
         const auto &available_moves = parent->GetMoves();
         auto idx = RNG::Get()(0, int32_t(available_moves.size() - 1));
-        ++max_depth_;
         return parent->MakeChild(available_moves[idx]);
     }
     else if (parent->IsLeaf()) {
@@ -189,8 +198,8 @@ inline typename MCTS<State, Move>::node_ptr_type MCTS<State, Move>::Expand(typen
     return parent;
 }
 
-template <typename State, typename Move>
-inline double MCTS<State, Move>::Rollout(int32_t rollout_limit, const typename MCTS<State, Move>::node_ptr_type& leaf) {
+template <typename State, typename Move, typename UCB1Policy>
+inline double MCTS<State, Move, UCB1Policy>::Rollout(int32_t rollout_limit, const typename MCTS<State, Move, UCB1Policy>::node_ptr_type& leaf) {
     double total_score = 0.0;
     for (auto i = 0; i < rollout_limit; ++i) {
         auto state = leaf->GetState();
@@ -205,22 +214,16 @@ inline double MCTS<State, Move>::Rollout(int32_t rollout_limit, const typename M
     return total_score;
 }
 
-template <typename State, typename Move>
-inline void MCTS<State, Move>::BackPropagation(const typename MCTS<State, Move>::node_ptr_type& leaf, double score) {
+template <typename State, typename Move, typename UCB1Policy>
+inline void MCTS<State, Move, UCB1Policy>::BackPropagation(const typename MCTS<State, Move, UCB1Policy>::node_ptr_type& leaf, double score) {
     leaf->Update(score, visits_);
     auto parent = leaf->GetParent();
-#if 0
-    while (parent != nullptr) {
-        parent->Update(score, visits_);
-        parent = parent->GetParent();
-    }
-#else
+
     if (!parent) {
         return;
     }
 
     std::vector<node_ptr_type> parents;
-    parents.reserve(max_depth_);
     parents.push_back(parent);
 
     while (true) {
@@ -235,7 +238,6 @@ inline void MCTS<State, Move>::BackPropagation(const typename MCTS<State, Move>:
     for (auto& parent : parents) {
         parent->Update(score, visits_);
     }
-#endif
 }
 
 }

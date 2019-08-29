@@ -423,9 +423,11 @@ public:
 private:
     void Turn(int32_t session_id) {
 #ifdef _DEBUG
-        auto move = ai_->ParallelSearch(30, 30);
+		ai_->Initial(30, 30);
+        auto move = ai_->ParallelSearch();
 #else
-        auto move = ai_->ParallelSearch(100, 8000);
+		ai_->Initial(100, 8000);
+        auto move = ai_->ParallelSearch();
 #endif        
         state_->ApplyMove(move);
         std::cout << "Server move: " << move.ToString() << std::endl << *state_;
@@ -661,9 +663,11 @@ private:
                 state_.reset(new GomokuGameState());
                 ai_.reset(new MCTS<GomokuGameState, GomokuGameMove>());
 #ifdef _DEBUG        
-                auto move = ai_->Search(10, 30);
+				ai_->Initial(10, 30);
+                auto move = ai_->Search();
 #else
-                auto move = ai_->ParallelSearch(100, 2000);
+				ai_->Initial(100, 2000);
+                auto move = ai_->ParallelSearch();
 #endif
                 state_->ApplyMove(move);
                 auto pid = NewPacketID();
@@ -675,9 +679,11 @@ private:
             state_.reset(new GomokuGameState());
             ai_.reset(new MCTS<GomokuGameState, GomokuGameMove>());
 #ifdef _DEBUG        
-            auto move = ai_->Search(10, 30);
+			ai_->Initial(10, 30);
+            auto move = ai_->Search();
 #else
-            auto move = ai_->ParallelSearch(100, 2000);
+			ai_->Initial(100, 2000);
+            auto move = ai_->ParallelSearch();
 #endif
             state_->ApplyMove(move);
             auto pid = NewPacketID();
@@ -699,9 +705,11 @@ private:
             logger_->debug("Client receive final move round id:{}, Wait new round.", round_id_);
         } else {
 #ifdef _DEBUG
-            auto search_move = ai_->Search(10, 30);
+			ai_->Initial(10, 30);
+            auto search_move = ai_->Search();
 #else
-            auto search_move = ai_->ParallelSearch(100, 2000);
+			ai_->Initial(100, 2000);
+            auto search_move = ai_->ParallelSearch();
 #endif
             assert(state_->IsLegalMove(search_move));
             state_->ApplyMove(search_move);
@@ -721,7 +729,7 @@ private:
 };
 
 int main() {
-#if 1
+#if 0
     GomokuGameServer server;
     server.Bind("0.0.0.0", 9090);
     server.Listen();
@@ -764,33 +772,25 @@ int main() {
         MCTS<GomokuGameState, GomokuGameMove> ai2;
         GomokuGameState game;
 
+		ai1.Initial(800, 2000);
+		ai2.Initial(800, 1000);
+
         std::cout << game;
 
         while (!game.IsTerminal()) {
             if (game.GetPlayerID() == 2) {
-#if 1
-                auto move = ai2.ParallelSearch(8000, 800);
-#else
-                auto move = ai2.Search(80, 4000);
-#endif
+                auto move = ai2.ParallelSearch();
                 assert(game.IsLegalMove(move));
                 std::cout << "AI2 turn!\n";
                 game.ApplyMove(move);
                 ai1.SetOpponentMove(move);
             }
             else {
-#if 1
-                auto move = ai1.ParallelSearch(80, 400);
-#else
-                auto move = ai1.Search(80, 4000);
-#endif
+                auto move = ai1.ParallelSearch();
                 assert(game.IsLegalMove(move));
                 std::cout << "AI1 turn!\n";
                 game.ApplyMove(move);
                 ai2.SetOpponentMove(move);
-#if DEBUG
-                std::cout << ai1 << "\n";
-#endif
             }
             std::cout << game;
         }

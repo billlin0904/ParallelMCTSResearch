@@ -222,8 +222,8 @@ std::future<typename std::result_of<F(Args ...)>::type> ThreadPool::RunAsync(F&&
     typedef typename std::result_of<F(Args ...)>::type ReturnType;
 
     auto task = std::make_shared<std::packaged_task<ReturnType()>>(
-                                                                      std::bind(std::forward<F>(f), std::forward<Args>(args)...)
-                                                                      );
+		std::bind(std::forward<F>(f), std::forward<Args>(args)...)
+    );
 
     scheduler_.SubmitJob([task]() {
         (*task)();
