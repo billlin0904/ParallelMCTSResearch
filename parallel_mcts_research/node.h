@@ -3,7 +3,6 @@
 #include <memory>
 #include <vector>
 #include <algorithm>
-#include <cmath>
 
 namespace mcts {
 
@@ -16,36 +15,9 @@ using NodePtr = std::shared_ptr<Node<State, Move, UCB1Policy>>;
 template <typename State, typename Move, typename UCB1Policy>
 using WeakPtr = std::weak_ptr<Node<State, Move, UCB1Policy>>;
 
-struct EBO { };
-
-// Upper Confidence Bounds
-struct DefaultUCB1Policy : public EBO {
-	double operator()(double score, int64_t visits) const {
-		return (score / visits)
-			+ DefaultConstant() * std::sqrt(std::log(double(visits)))
-			/ double(visits);
-	}
-
-	static double DefaultConstant() noexcept {
-		static const auto c = std::sqrt(2.0);
-		return c;
-	}
-};
-
-// UCB1Tuned
-struct UCB1Tuned : public EBO {
-	double operator()(double score, int64_t visits) const {
-		static const auto MAX_BERNOULLI_RANDOM_VARIABLE_VARIANCE = 0.25;
-		double variance = MAX_BERNOULLI_RANDOM_VARIABLE_VARIANCE;
-		return (score / visits)
-			+ std::sqrt(std::log(visits) / visits)
-			* (std::min)(MAX_BERNOULLI_RANDOM_VARIABLE_VARIANCE,
-				variance + std::sqrt(2.0 * std::log(visits) / visits));
-	}	
-};
-
 template <typename State, typename Move, typename UCB1Policy>
-class Node : public std::enable_shared_from_this<Node<State, Move, UCB1Policy>> {
+class Node 
+	: public std::enable_shared_from_this<Node<State, Move, UCB1Policy>> {
 public:
     using self_type = Node<State, Move, UCB1Policy>;
     using ptr_type = NodePtr<State, Move, UCB1Policy>;
@@ -55,16 +27,10 @@ public:
          const Move& move = Move(),
          NodePtr<State, Move, UCB1Policy> parent = nullptr)
         : player_id_(state.GetPlayerID())
-        , score_(0)
-        , visits_(0)
         , state_(state)
         , move_(move)
         , parent_(parent)
         , possible_moves_(state.GetLegalMoves()) {
-    }
-
-    void AddChild(const ptr_type &child) {
-        children_.push_back(child);
     }
 
     ptr_type MakeChild(const Move &next_move) {
@@ -84,14 +50,8 @@ public:
         return !children_.empty();
     }
 
-    void Update(double result) noexcept {
-        score_ += result;
-        ++visits_;
-    }
-
-    void Update(double result, int64_t visits) noexcept {
-        score_ += result;
-        visits_ += visits;
+    void Update(double score) noexcept {
+		ucb1_policy_.Update(score);
     }
 
     bool HasPassibleMoves() const noexcept {
@@ -99,11 +59,11 @@ public:
     }
 
     double GetScore() const noexcept {
-        return score_;
+		return ucb1_policy_.GetScore();
     }
 
     int64_t GetVisits() const noexcept {
-        return visits_;
+        return ucb1_policy_.GetVisits();
     }
 
     const State & GetState() const {
@@ -134,8 +94,8 @@ public:
         return children_.size();
     }
 
-	double GetUCB() const noexcept {
-		return ucb1_policy_(GetScore(), GetVisits());
+	double GetUCB(int32_t evaluate_count) const noexcept {
+		return ucb1_policy_(evaluate_count);
     }
 
 private:
@@ -145,9 +105,7 @@ private:
                     possible_moves_.end());
     }
     
-    int8_t player_id_;
-    double score_;
-    int64_t visits_;
+    int8_t player_id_;   
     State state_;
     Move move_;
     parent_ptr_type parent_;

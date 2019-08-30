@@ -243,10 +243,14 @@ std::vector<std::future<void>> ParallelFor(IndexType first, IndexType last, Inde
 }
 
 template <typename IndexType, typename Function>
-std::vector<std::future<void>> ParallelFor(IndexType count, Function&& fun) {
-    return ParallelFor(IndexType(0), count, IndexType(1), [&fun](IndexType i) {
+void ParallelFor(IndexType count, Function&& fun) {	
+    auto tasks = ParallelFor(IndexType(0), count, IndexType(1), [&fun](IndexType i) {
         fun(i);
     });
+
+	for (auto& task : tasks) {
+		task.get();
+	}
 }
 
 }

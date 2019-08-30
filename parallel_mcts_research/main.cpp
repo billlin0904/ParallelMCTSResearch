@@ -71,11 +71,7 @@ public:
 
     bool IsEmptyMove() const noexcept {
         return remain_move_ == MAX_WIDTH * MAX_HEIGHT;
-    }
-
-    bool IsTerminal() const noexcept {
-        return is_terminal_;
-    }
+    }    
 
     bool IsWinnerExsts() const noexcept {
         return winner_exists_;
@@ -111,6 +107,10 @@ public:
         }
         return (player_id_ == 1) ? -1 : 1;
     }
+
+	bool IsTerminal() const noexcept {
+		return is_terminal_;
+	}
 
     GomokuGameMove GetRandomMove() const {
         const auto & legal_moves = GetLegalMoves();
@@ -772,8 +772,8 @@ int main() {
         MCTS<GomokuGameState, GomokuGameMove> ai2;
         GomokuGameState game;
 
-		ai1.Initial(800, 2000);
-		ai2.Initial(800, 1000);
+		ai1.Initial(1000, 500);
+		ai2.Initial(1000, 500);
 
         std::cout << game;
 
