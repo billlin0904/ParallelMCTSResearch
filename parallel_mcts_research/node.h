@@ -94,8 +94,8 @@ public:
         return children_.size();
     }
 
-	double GetUCB(int32_t evaluate_count) const noexcept {
-		return ucb1_policy_(evaluate_count);
+    double GetUCB() const noexcept {
+        return ucb1_policy_();
     }
 
 private:

@@ -232,10 +232,10 @@ std::future<typename std::result_of<F(Args ...)>::type> ThreadPool::RunAsync(F&&
 }
 
 template <typename IndexType, typename Function>
-std::vector<std::future<void>> ParallelFor(IndexType first, IndexType last, IndexType step, Function &&fun) {
+std::vector<std::future<void>> ParallelFor(IndexType first, IndexType last, IndexType step, Function fun) {
     std::vector<std::future<void>> futs;
     for (auto i = first; i < last; i += step) {
-        futs.push_back(ThreadPool::Get().RunAsync([i, &fun]() {
+        futs.push_back(ThreadPool::Get().RunAsync([i, fun]() {
             fun(i);
         }));
     }
@@ -243,8 +243,8 @@ std::vector<std::future<void>> ParallelFor(IndexType first, IndexType last, Inde
 }
 
 template <typename IndexType, typename Function>
-void ParallelFor(IndexType count, Function&& fun) {	
-    auto tasks = ParallelFor(IndexType(0), count, IndexType(1), [&fun](IndexType i) {
+void ParallelFor(IndexType count, Function fun) {
+    auto tasks = ParallelFor(IndexType(0), count, IndexType(1), [fun](IndexType i) {
         fun(i);
     });
 

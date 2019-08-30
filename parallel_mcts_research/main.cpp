@@ -772,8 +772,8 @@ int main() {
         MCTS<GomokuGameState, GomokuGameMove> ai2;
         GomokuGameState game;
 
-		ai1.Initial(1000, 500);
-		ai2.Initial(1000, 500);
+        ai1.Initial(500, 500);
+        ai2.Initial(500, 500);
 
         std::cout << game;
 
