@@ -4,7 +4,17 @@
 #include <vector>
 #include <algorithm>
 
+#include "tweakme.h"
+
 namespace mcts {
+
+#if USE_STD_UNORDERED_SET
+template <typename T>
+using HashSet = phmap::unordered_set<T>;
+#else
+template <typename T>
+using HashSet = phmap::flat_hash_set<T>;
+#endif
 
 template <typename State, typename Move, typename UCB1Policy>
 class Node;
@@ -26,11 +36,11 @@ public:
     Node(const State& state = State(),
          const Move& move = Move(),
          NodePtr<State, Move, UCB1Policy> parent = nullptr)
-        : player_id_(state.GetPlayerID())
-        , state_(state)
+        : player_id_(state.GetPlayerID())        
         , move_(move)
         , parent_(parent)
-        , possible_moves_(state.GetLegalMoves()) {
+        , possible_moves_(state.GetLegalMoves())
+		, state_(state) {
     }
 
     ptr_type MakeChild(const Move &next_move) {
@@ -46,17 +56,21 @@ public:
         return new_node;
     }
 
-    bool IsLeaf() const noexcept {
+	inline bool IsLeaf() const noexcept {
         return !children_.empty();
     }
+
+	inline bool HasPassibleMoves() const noexcept {
+		return possible_moves_.empty();
+	}
 
     void Update(double score) noexcept {
 		ucb1_policy_.Update(score);
     }
 
-    bool HasPassibleMoves() const noexcept {
-        return possible_moves_.empty();
-    }
+	void Update(double score, int64_t visits) noexcept {
+		ucb1_policy_.Update(score, visits);
+	}    
 
     double GetScore() const noexcept {
 		return ucb1_policy_.GetScore();
@@ -70,9 +84,9 @@ public:
         return state_;
     }
 
-    const std::vector<Move>& GetMoves() const noexcept {
-        return possible_moves_;
-    }
+	const HashSet<Move>& GetMoves() const noexcept {
+		return possible_moves_;
+	}
 
     const Move & GetLastMove() const noexcept {
         return move_;
@@ -95,23 +109,25 @@ public:
     }
 
     double GetUCB() const noexcept {
-        return ucb1_policy_();
+        return ucb1_policy_(GetParent()->GetVisits());
     }
+
+	inline double GetWinRate() const {
+		return GetScore() / double(GetVisits());
+	}
 
 private:
     void RemoveMove(const Move& move) {
-        possible_moves_.erase(
-                    std::remove(possible_moves_.begin(), possible_moves_.end(), move),
-                    possible_moves_.end());
+		possible_moves_.erase(move);
     }
     
-    int8_t player_id_;   
-    State state_;
+    int8_t player_id_;       
     Move move_;
     parent_ptr_type parent_;
 	UCB1Policy ucb1_policy_;
     std::vector<ptr_type> children_;
-    std::vector<Move> possible_moves_;
+	HashSet<Move> possible_moves_;
+	State state_;
 };
 
 }

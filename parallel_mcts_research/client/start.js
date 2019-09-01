@@ -8,7 +8,7 @@ var HAS_CHART = false;
 var MAX_WIDTH = 10;
 var MAX_HEIGHT = 10;
 
-var IS_WATCH = true;
+var IS_WATCH = false;
 
 var rectW = 60;
 var rectH = 30;

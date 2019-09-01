@@ -3,15 +3,13 @@
 #include <vector>
 #include <memory>
 #include <algorithm>
-#include <ostream>
 
+#include "tweakme.h"
 #include "rng.h"
 #include "node.h"
 #include "ucbpolicy.h"
 
-#define EANBE_PPL 1
-
-#if EANBE_PPL && defined(_WIN32)
+#if USE_PPL && defined(_WIN32)
 #include <ppl.h>
 #else
 #include "threadpool.h"
@@ -41,9 +39,11 @@ public:
 
     void SetOpponentMove(const Move& opponent_move);
 
-    node_ptr_type GetCurrentNode() const;
+	const node_ptr_type& GetCurrentNode() const;
 
-    node_ptr_type GetRoot() const;
+	void Cancel() {
+		cancelled_ = true;
+	}
 
 private:
     node_ptr_type GetBestChild(const node_ptr_type& parent) const;
@@ -58,6 +58,7 @@ private:
 
     void BackPropagation(const node_ptr_type& leaf, double score);
 
+	std::atomic<bool> cancelled_;
     int32_t evaluate_count_;
     int32_t rollout_limit_;
     node_ptr_type root_;
@@ -67,7 +68,8 @@ private:
 
 template <typename State, typename Move, typename UCB1Policy>
 MCTS<State, Move, UCB1Policy>::MCTS(int32_t evaluate_count, int32_t rollout_limit)
-    : evaluate_count_(evaluate_count)
+    : cancelled_(false)
+	, evaluate_count_(evaluate_count)
     , rollout_limit_(rollout_limit)
     , root_(std::make_shared<Node<State, Move, UCB1Policy>>())
     , current_node_(root_) {
@@ -75,7 +77,8 @@ MCTS<State, Move, UCB1Policy>::MCTS(int32_t evaluate_count, int32_t rollout_limi
 
 template <typename State, typename Move, typename UCB1Policy>
 MCTS<State, Move, UCB1Policy>::MCTS(const State &state, int32_t evaluate_count, int32_t rollout_limit)
-    : evaluate_count_(evaluate_count)
+    : cancelled_(false)
+	, evaluate_count_(evaluate_count)
     , rollout_limit_(rollout_limit)
     , root_(std::make_shared<Node<State, Move, UCB1Policy>>(state))
     , current_node_(root_) {
@@ -88,15 +91,15 @@ void MCTS<State, Move, UCB1Policy>::Initial(int32_t evaluate_count, int32_t roll
 }
 
 template <typename State, typename Move, typename UCB1Policy>
-typename MCTS<State, Move, UCB1Policy>::node_ptr_type MCTS<State, Move, UCB1Policy>::GetRoot() const {
-    return root_;
+const typename MCTS<State, Move, UCB1Policy>::node_ptr_type& MCTS<State, Move, UCB1Policy>::GetCurrentNode() const {
+    return current_node_;
 }
 
 template <typename State, typename Move, typename UCB1Policy>
 typename MCTS<State, Move, UCB1Policy>::node_ptr_type MCTS<State, Move, UCB1Policy>::GetBestUCBChild(const typename MCTS<State, Move, UCB1Policy>::node_ptr_type& parent) const {
     const auto& candidate_node = parent->GetChildren();
-    auto itr = std::max_element(candidate_node.begin(), candidate_node.end(), [this](
-                                const typename MCTS<State, Move, UCB1Policy>::node_ptr_type &first,
+    auto itr = std::max_element(candidate_node.cbegin(), candidate_node.cend(), [this](
+                                const typename MCTS<State, Move, UCB1Policy>::node_ptr_type& first,
                                 const typename MCTS<State, Move, UCB1Policy>::node_ptr_type& last) {
         return first->GetUCB() > last->GetUCB();
     });
@@ -106,23 +109,20 @@ typename MCTS<State, Move, UCB1Policy>::node_ptr_type MCTS<State, Move, UCB1Poli
 template <typename State, typename Move, typename UCB1Policy>
 typename MCTS<State, Move, UCB1Policy>::node_ptr_type MCTS<State, Move, UCB1Policy>::GetBestChild(const typename MCTS<State, Move, UCB1Policy>::node_ptr_type& parent) const {
     const auto& candidate_node = parent->GetChildren();
-    auto itr = std::max_element(candidate_node.begin(), candidate_node.end(),
-                                [](const typename MCTS<State, Move, UCB1Policy>::node_ptr_type& large,
+    auto itr = std::max_element(candidate_node.cbegin(), candidate_node.cend(),
+                                [](
+								const typename MCTS<State, Move, UCB1Policy>::node_ptr_type& large,
                                 const typename MCTS<State, Move, UCB1Policy>::node_ptr_type& node) {
-        return ((node->GetScore() / double(node->GetVisits()))
-                > (large->GetScore() / double(large->GetVisits())));
+		return node->GetWinRate() > large->GetWinRate();
     });
     return *itr;
 }
 
 template <typename State, typename Move, typename UCB1Policy>
-typename MCTS<State, Move, UCB1Policy>::node_ptr_type MCTS<State, Move, UCB1Policy>::GetCurrentNode() const {
-    return current_node_;
-}
-
-template <typename State, typename Move, typename UCB1Policy>
 Move MCTS<State, Move, UCB1Policy>::Search() {
-    for (auto i = 0; i < evaluate_count_; ++i) {
+	cancelled_ = false;
+
+    for (auto i = 0; i < evaluate_count_ && !cancelled_; ++i) {
         auto selected_parent = Select();
         auto selected_leaf = Expand(selected_parent);
         auto score = Rollout(selected_leaf);
@@ -135,13 +135,17 @@ Move MCTS<State, Move, UCB1Policy>::Search() {
 
 template <typename State, typename Move, typename UCB1Policy>
 Move MCTS<State, Move, UCB1Policy>::ParallelSearch() {
+	cancelled_ = false;
     // Leaf Parallelisation
-#if EANBE_PPL && defined(_WIN32)
+#if USE_PPL && defined(_WIN32)
     concurrency::parallel_for(0, evaluate_count_,
 #else
     ParallelFor(evaluate_count_,
 #endif
     [this](int32_t) {
+		if (cancelled_) {
+			return;
+		}
         node_ptr_type selected_parent;
         node_ptr_type selected_leaf;
         {
@@ -191,8 +195,8 @@ template <typename State, typename Move, typename UCB1Policy>
 inline typename MCTS<State, Move, UCB1Policy>::node_ptr_type MCTS<State, Move, UCB1Policy>::Expand(typename MCTS<State, Move, UCB1Policy>::node_ptr_type& parent) {
     if (!parent->HasPassibleMoves()) {
         const auto& available_moves = parent->GetMoves();
-        auto idx = RNG::Get()(size_t(0), available_moves.size() - 1);
-        return parent->MakeChild(available_moves[idx]);
+		auto itr = std::next(std::begin(available_moves), RNG::Get()(0, int32_t(available_moves.size() - 1)));
+		return parent->MakeChild(*itr);
     }
     else if (parent->IsLeaf()) {
         const auto& children = parent->GetChildren();
@@ -205,7 +209,7 @@ inline typename MCTS<State, Move, UCB1Policy>::node_ptr_type MCTS<State, Move, U
 template <typename State, typename Move, typename UCB1Policy>
 inline double MCTS<State, Move, UCB1Policy>::Rollout(const typename MCTS<State, Move, UCB1Policy>::node_ptr_type& leaf) {
     double total_score = 0.0;
-    for (auto i = 0; i < rollout_limit_; ++i) {
+    for (auto i = 0; i < rollout_limit_ && !cancelled_; ++i) {
         auto state = leaf->GetState();
         // Simulation
         while (!state.IsTerminal()) {
@@ -223,7 +227,7 @@ template <typename State, typename Move, typename UCB1Policy>
 inline void MCTS<State, Move, UCB1Policy>::BackPropagation(
         const typename MCTS<State, Move, UCB1Policy>::node_ptr_type& leaf,
         double score) {
-    leaf->Update(score);
+    leaf->Update(score, rollout_limit_);
     auto parent = leaf->GetParent();
     if (!parent) {
         return;
@@ -242,7 +246,7 @@ inline void MCTS<State, Move, UCB1Policy>::BackPropagation(
     }
 
     for (auto& parent : parents) {
-        parent->Update(score);
+        parent->Update(score, rollout_limit_);
     }
 }
 

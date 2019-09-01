@@ -32,18 +32,18 @@ public:
     virtual void OnDisconnected(std::shared_ptr<Session>) = 0;
     virtual void OnSend(std::shared_ptr<Session>) = 0;
     virtual void OnReceive(std::shared_ptr<Session>, const std::string &) = 0;
-    virtual void OnError(std::shared_ptr<Session>, const Exception&) = 0;
+    virtual void OnError(std::shared_ptr<Session>, const std::exception&) = 0;
 protected:
     ServerCallback() = default;
 };
 
-int32_t NewSessionID() noexcept;
+using SessionID = int64_t;
 
 class Session : public std::enable_shared_from_this<Session> {
 public:
     static const int32_t MAX_SEND_QUEUE_SIZE = 128;
 
-    Session(int32_t session_id, boost::asio::io_context& ioc, boost::asio::ip::tcp::socket socket, ServerCallback* callback)
+    Session(SessionID session_id, boost::asio::io_context& ioc, boost::asio::ip::tcp::socket socket, ServerCallback* callback)
         : session_id_(session_id)
         , ws_(std::move(socket))
         , strand_(boost::asio::make_strand(ioc))
@@ -79,7 +79,10 @@ public:
         ws_.async_read(
                     buffer_,
                     boost::asio::bind_executor(strand_,
-                                               std::bind(&Session::OnRead, shared_from_this(), std::placeholders::_1, std::placeholders::_2)));
+                                               std::bind(&Session::OnRead,
+												   shared_from_this(),
+												   std::placeholders::_1,
+												   std::placeholders::_2)));
     }
 
     void Send(const std::string &message) {
@@ -91,7 +94,7 @@ public:
                                     buffer));
     }
 
-    int32_t GetSessionID() const {
+	SessionID GetSessionID() const {
         return session_id_;
     }
 
@@ -158,7 +161,7 @@ private:
         callback_->OnReceive(shared_from_this(), data);
     }
 
-    int32_t session_id_;
+	SessionID session_id_;
     boost::beast::websocket::stream<boost::asio::ip::tcp::socket> ws_;
     boost::asio::strand<boost::asio::io_context::executor_type> strand_;
     boost::beast::flat_buffer buffer_;
@@ -178,13 +181,19 @@ public:
 
     void Boardcast(const std::string& messag);
 
-    void BoardcastExcept(const std::string& message, int32_t except_session_id);
+    void BoardcastExcept(const std::string& message, SessionID except_session_id);
 
-    void SentTo(int32_t session_id, const std::string& message);
+	void BoardcastExcepts(const std::string& message, const phmap::flat_hash_set<int32_t>& excepts);
+
+    void SentTo(SessionID session_id, const std::string& message);
 
     void Run();
 
-    void RemoveSession(int32_t session_id);
+    void RemoveSession(SessionID session_id);
+
+	bool IsSessionExists(SessionID session_id) const;
+
+	void SetMaxSession(size_t max_session);
 
     void SetBinaryFormat(bool enable = true);
 private:
@@ -193,11 +202,12 @@ private:
     void OnAccept(boost::system::error_code ec, boost::asio::ip::tcp::socket socket);
 
     bool is_binray_;
+	size_t max_session_;
     boost::asio::io_context& ioc_;
     boost::asio::ip::tcp::acceptor acceptor_;
     std::mutex mutex_;
     ServerCallback* callback_;
-    phmap::flat_hash_map<int32_t, std::shared_ptr<Session>> sessions_;
+    std::map<SessionID, std::shared_ptr<Session>> sessions_;
     std::string server_ver_;
 };
 
@@ -215,7 +225,7 @@ public:
 
     void Boardcast(const std::string& message);
 
-    void SentTo(int32_t session_id, const std::string& message);
+    void SentTo(SessionID session_id, const std::string& message);
 
     void BoardcastExcept(const std::string& message, int32_t except_session_id);
 
@@ -223,12 +233,12 @@ public:
 
     void RemoveSession(const std::shared_ptr<Session>& session);
 private:
-    void WaitAllThreadDone();
+    void WaitForDone();
 
     uint32_t max_thread_;
     boost::beast::net::io_context ioc_;
     std::vector<std::thread> worker_threads_;
-    std::shared_ptr<Listener> listener_;
+	std::shared_ptr<Listener> listener_;
 };
 
 }

@@ -2,13 +2,14 @@
 
 namespace websocket {
 
-int32_t NewSessionID() noexcept {
-    static std::atomic<int32_t> sSessionID(10000);
+static SessionID NewSessionID() noexcept {
+    static std::atomic<SessionID> sSessionID(10000);
     return ++sSessionID;
 }
 
 Listener::Listener(ServerCallback* callback, const std::string& server_ver, boost::asio::io_context& ioc)
     : is_binray_(false)
+	, max_session_(65535)
     , ioc_(ioc)
     , acceptor_(boost::asio::make_strand(ioc))
     , callback_(callback)
@@ -52,7 +53,16 @@ void Listener::Boardcast(const std::string& messag) {
     }
 }
 
-void Listener::BoardcastExcept(const std::string& message, int32_t except_session_id) {
+void Listener::BoardcastExcepts(const std::string& message, const phmap::flat_hash_set<int32_t>& excepts) {
+	std::lock_guard<std::mutex> guard{ mutex_ };
+	for (auto& sess : sessions_) {
+		if (excepts.find(sess.second->GetSessionID()) == excepts.end()) {
+			sess.second->Send(message);
+		}
+	}
+}
+
+void Listener::BoardcastExcept(const std::string& message, SessionID except_session_id) {
     std::lock_guard<std::mutex> guard{ mutex_ };
     for (auto& sess : sessions_) {
         if (sess.second->GetSessionID() != except_session_id) {
@@ -61,7 +71,7 @@ void Listener::BoardcastExcept(const std::string& message, int32_t except_sessio
     }
 }
 
-void Listener::SentTo(int32_t session_id, const std::string& message) {
+void Listener::SentTo(SessionID session_id, const std::string& message) {
     std::lock_guard<std::mutex> guard{ mutex_ };
     auto itr = sessions_.find(session_id);
     if (itr != sessions_.end()) {
@@ -76,7 +86,11 @@ void Listener::Run() {
     DoAccept();
 }
 
-void Listener::RemoveSession(int32_t session_id) {
+bool Listener::IsSessionExists(SessionID session_id) const {
+	return sessions_.find(session_id) != sessions_.end();
+}
+
+void Listener::RemoveSession(SessionID session_id) {
     sessions_.erase(session_id);
 }
 
@@ -98,23 +112,32 @@ void Listener::OnAccept(boost::system::error_code ec, boost::asio::ip::tcp::sock
         return;
     }
 
-    auto id = NewSessionID();
-
     try {
         std::lock_guard<std::mutex> guard{ mutex_ };
+		auto id = NewSessionID();
         auto session = std::make_shared<Session>(id, ioc_, std::move(socket), callback_);
         session->SetBinaryFormat(is_binray_);
 
         session->Start(server_ver_);
         sessions_.insert(std::make_pair(id, session));
     }
-    catch (const std::exception&) {
-        return;
+    catch (const std::exception& e) {
     }
-    catch (...) {
-        return;
+    catch (...) {        
     }
     DoAccept();
+}
+
+void Listener::SetMaxSession(size_t max_session) {
+	std::lock_guard<std::mutex> guard{ mutex_ };
+	max_session_ = max_session;
+	if (sessions_.size() > max_session_) {
+		for (size_t i = 0; i < sessions_.size(); ++i) {
+			if (i > max_session_) {
+				sessions_.erase(sessions_.begin());
+			}
+		}
+	}
 }
 
 WebSocketServer::WebSocketServer(const std::string& server_ver, uint32_t max_thread)
@@ -124,7 +147,7 @@ WebSocketServer::WebSocketServer(const std::string& server_ver, uint32_t max_thr
 }
 
 WebSocketServer::~WebSocketServer() {
-    WaitAllThreadDone();
+    WaitForDone();
 }
 
 void WebSocketServer::Bind(boost::asio::ip::tcp::endpoint endpoint) {
@@ -132,7 +155,7 @@ void WebSocketServer::Bind(boost::asio::ip::tcp::endpoint endpoint) {
 }
 
 void WebSocketServer::Listen() {
-    listener_->Listen();
+	listener_->Listen();
 }
 
 void WebSocketServer::Bind(const std::string& addr, uint16_t port) {
@@ -141,15 +164,15 @@ void WebSocketServer::Bind(const std::string& addr, uint16_t port) {
 }
 
 void WebSocketServer::Boardcast(const std::string& message) {
-    listener_->Boardcast(message);
+	listener_->Boardcast(message);
 }
 
-void WebSocketServer::SentTo(int32_t session_id, const std::string& message) {
-    listener_->SentTo(session_id, message);
+void WebSocketServer::SentTo(SessionID session_id, const std::string& message) {
+	listener_->SentTo(session_id, message);
 }
 
 void WebSocketServer::BoardcastExcept(const std::string& message, int32_t except_session_id) {
-    listener_->BoardcastExcept(message, except_session_id);
+	listener_->BoardcastExcept(message, except_session_id);
 }
 
 void WebSocketServer::Run() {
@@ -165,17 +188,17 @@ void WebSocketServer::Run() {
         });
     }
 
-    listener_->Run();
+	listener_->Run();
     ioc_.run();
 
-    WaitAllThreadDone();
+    WaitForDone();
 }
 
 void WebSocketServer::RemoveSession(const std::shared_ptr<Session>& session) {
-    listener_->RemoveSession(session->GetSessionID());
+	listener_->RemoveSession(session->GetSessionID());
 }
 
-void WebSocketServer::WaitAllThreadDone() {
+void WebSocketServer::WaitForDone() {
     for (auto& thread : worker_threads_) {
         if (thread.joinable()) {
             thread.join();

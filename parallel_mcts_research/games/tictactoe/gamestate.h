@@ -1,33 +1,12 @@
-#include <array>
-#include <map>
-#include <iostream>
-#include <cassert>
-#include <fstream>
-#include <sstream>
+#pragma once
 
-#include "mcts.h"
+#include <cstdint>
 
-class TicTacToeGameMove {
-public:
-	TicTacToeGameMove(size_t index = 0) noexcept
-		: index(index) {
-	}
+#include "../mcts.h"
+#include "../rng.h"
+#include "gamemove.h"
 
-	size_t index;
-
-	std::string ToString() const {
-		std::ostringstream ostr;
-		ostr << index;
-		return ostr.str();
-	}
-
-private:
-	friend bool operator==(const TicTacToeGameMove& lhs, const TicTacToeGameMove& rhs) noexcept;
-};
-
-bool operator==(const TicTacToeGameMove& lhs, const TicTacToeGameMove& rhs) noexcept {
-	return lhs.index == rhs.index;
-}
+namespace tictactoe {
 
 using namespace mcts;
 
@@ -83,7 +62,8 @@ public:
 
 	TicTacToeGameMove GetRandomMove() const {
 		auto legal_moves = GetLegalMoves();
-		return legal_moves.at(RNG::Get()(0, int32_t(legal_moves.size() - 1)));
+		auto itr = std::next(std::begin(legal_moves), RNG::Get()(0, int32_t(legal_moves.size() - 1)));
+		return *itr;
 	}
 
 	int8_t GetPlayerID() const noexcept {
@@ -97,12 +77,12 @@ public:
 		return board_.at(move.index) == EMPTY;
 	}
 
-	std::vector<TicTacToeGameMove> GetLegalMoves() const noexcept {
-		std::vector<TicTacToeGameMove> legal_moves;
+	mcts::HashSet<TicTacToeGameMove> GetLegalMoves() const noexcept {
+		mcts::HashSet<TicTacToeGameMove> legal_moves;
 		int32_t i = 0;
 		for (auto c : board_) {
 			if (c == EMPTY) {
-				legal_moves.emplace_back(i);
+				legal_moves.emplace(i);
 			}
 			i++;
 		}
@@ -159,65 +139,4 @@ private:
 	std::array<int8_t, 9> board_;
 };
 
-void RunGame() {
-	std::map<int8_t, size_t> stats;
-
-	while (true) {
-		MCTS<TicTacToeGameState, TicTacToeGameMove> ai1;
-		MCTS<TicTacToeGameState, TicTacToeGameMove> ai2;
-		TicTacToeGameState game;
-
-		ai1.Initial(100, 100);
-		ai2.Initial(100, 100);
-
-		while (!game.IsTerminal()) {
-			if (game.GetPlayerID() == 1) {
-				/*
-				std::cout << "Human turn!" << "\n";
-				std::cout << game;
-
-				while (true) {
-					int32_t input = 0;
-					std::cin >> input;
-					if (game.IsLegalMove(input)) {
-						GameMove human_move(input);
-						game.ApplyMove(human_move);
-						ai1.SetOpponentMove(human_move);
-						break;
-					}
-				}
-				*/
-
-				auto move = ai2.Search();
-				assert(game.IsLegalMove(move));
-				//std::cout << "AI2 turn!" << "\n";
-				game.ApplyMove(move);
-				ai1.SetOpponentMove(move);
-			}
-			else {
-				auto move = ai1.Search();
-				assert(game.IsLegalMove(move));
-				//std::cout << "AI1 turn!" << "\n";
-				game.ApplyMove(move);
-				ai2.SetOpponentMove(move);
-			}
-
-			std::cout << game;
-			std::cin.get();
-		}
-
-		std::cout << game;
-
-		if (game.IsWinnerExsts()) {
-			stats[game.CheckWinner()]++;
-		}
-		else {
-			stats[EMPTY]++;
-		}
-
-		//std::cout << "Winner is:" << game.CheckWinner() << "\n";
-		std::cout << PLAYER1 << " win:" << stats[PLAYER1] << "\n";
-		std::cout << PLAYER2 << " win:" << stats[PLAYER2] << "\n";
-		std::cout << "Tie" << " win:" << stats[EMPTY] << "\n";
-	}
 }
