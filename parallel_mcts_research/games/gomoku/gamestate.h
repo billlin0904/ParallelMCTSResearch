@@ -100,7 +100,7 @@ public:
 		return board_[move.row][move.column] == EMPTY;
 	}
 
-	const mcts::HashSet<GomokuGameMove>& GetLegalMoves() const noexcept {
+	const HashSet<GomokuGameMove>& GetLegalMoves() const noexcept {
 		return legal_moves_;
 	}
 
@@ -193,7 +193,7 @@ private:
 	int8_t player_id_;
 	int32_t remain_move_;
 	GomokuGameMove last_move_;
-	mcts::HashSet<GomokuGameMove> legal_moves_;
+	HashSet<GomokuGameMove> legal_moves_;
 	std::vector<std::vector<int8_t>> board_;
 };
 

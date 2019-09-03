@@ -5,7 +5,7 @@
 #include "../websocket/logger.h"
 #include "../websocket/websocket_client.h"
 
-#include "encoder.h"
+#include "packetencoder.h"
 #include "gamestate.h"
 
 namespace gomoku {
@@ -22,7 +22,7 @@ public:
 
 	void OnConnected(std::shared_ptr<WebSocketClient> s) override {
 		state_.reset(new GomokuGameState());
-		s->Send(Encoder::EnterRoom(room_id_, round_id_));
+		s->Send(PacketEncoder::EnterRoom(room_id_, round_id_));
 		s->Receive();
 	}
 
@@ -78,7 +78,7 @@ private:
 				auto move = ai_->ParallelSearch();
 #endif
 				state_->ApplyMove(move);
-				s->Send(Encoder::Turn(move, *state_, *ai_, room_id_, round_id_));
+				s->Send(PacketEncoder::Turn(move, *state_, *ai_, room_id_, round_id_));
 				logger_->debug("Client send Turn round_id: {}", round_id_);
 			}
 		}
@@ -93,7 +93,7 @@ private:
 			auto move = ai_->ParallelSearch();
 #endif
 			state_->ApplyMove(move);
-			s->Send(Encoder::Turn(move, *state_, *ai_, room_id_, round_id_));
+			s->Send(PacketEncoder::Turn(move, *state_, *ai_, room_id_, round_id_));
 			logger_->debug("Client send Turn round_id: {}", round_id_);
 		}
 	}
@@ -120,7 +120,7 @@ private:
 #endif
 			assert(state_->IsLegalMove(search_move));
 			state_->ApplyMove(search_move);
-			s->Send(Encoder::Turn(search_move, *state_, *ai_, room_id_, round_id_));
+			s->Send(PacketEncoder::Turn(search_move, *state_, *ai_, room_id_, round_id_));
 			logger_->debug("Client send Turn round_id: {}", round_id_);
 			std::cout << "Client move: " << move.ToString() << std::endl << *state_;
 		}

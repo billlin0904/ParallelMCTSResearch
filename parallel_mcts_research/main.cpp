@@ -4,9 +4,12 @@
 #include "games/gomoku/gameserver.h"
 #include "games/gomoku/gameclient.h"
 
+using namespace gomoku;
+using namespace websocket;
+
 int main() {
 #if 1
-	gomoku::GomokuGameServer server;
+	GomokuGameServer server;
 	server.Bind("0.0.0.0", 9090);
 	server.Listen();
 
@@ -18,24 +21,24 @@ int main() {
 			ios.run();
 			});
 	}
-#if 0
+#if 1
 #ifdef _DEBUG
 	const int32_t MAX_CLIENT = 1;
 #else
-	const int32_t MAX_CLIENT = 1;
+	const int32_t MAX_CLIENT = 10;
 #endif
 	const auto scheme = "ws";
 	const auto host = "127.0.0.1";
 	const auto port = "9090";
-	std::vector<std::shared_ptr<websocket::WebSocketClient>> clients;
+	std::vector<std::shared_ptr<WebSocketClient>> clients;
 	clients.reserve(MAX_CLIENT);
 	for (auto i = 0; i < MAX_CLIENT; ++i) {
-		auto ws = websocket::WebSocketClient::MakeSocket(
+		auto ws = WebSocketClient::MakeSocket(
 			scheme,
 			host,
 			port,
 			ios,
-			new gomoku::GomokuGameClientCallback());
+			new GomokuGameClientCallback());
 		ws->Connect();
 		clients.push_back(ws);
 	}	
@@ -46,12 +49,12 @@ int main() {
 	std::map<int8_t, size_t> stats;
 
 	while (true) {
-		mcts::MCTS<gomoku::GomokuGameState, gomoku::GomokuGameMove> ai1;
-		mcts::MCTS<gomoku::GomokuGameState, gomoku::GomokuGameMove> ai2;
-		gomoku::GomokuGameState game;
+		mcts::MCTS<GomokuGameState, GomokuGameMove> ai1;
+		mcts::MCTS<GomokuGameState, GomokuGameMove> ai2;
+		GomokuGameState game;
 
-		ai1.Initial(3000, 3000);
-		ai2.Initial(3000, 3000);
+		ai1.Initial(300, 300);
+		ai2.Initial(300, 300);
 
 		std::cout << game;
 
@@ -59,14 +62,14 @@ int main() {
 			if (game.GetPlayerID() == 2) {
 				auto move = ai2.ParallelSearch();
 				assert(game.IsLegalMove(move));
-				std::cout << "AI2 turn! winrate : " << ai2.GetCurrentNode()->GetWinRate() << "\n";
+				std::cout << "AI2 turn!" << "\n";
 				game.ApplyMove(move);
 				ai1.SetOpponentMove(move);
 			}
 			else {
 				auto move = ai1.ParallelSearch();
 				assert(game.IsLegalMove(move));
-				std::cout << "AI1 turn! winrate : " << ai1.GetCurrentNode()->GetWinRate() << "\n";
+				std::cout << "AI1 turn!" << "\n";
 				game.ApplyMove(move);
 				ai2.SetOpponentMove(move);
 			}
@@ -82,9 +85,9 @@ int main() {
 			stats[gomoku::EMPTY]++;
 		}
 
-		std::cout << gomoku::PLAYER1 << " win:" << stats[gomoku::PLAYER1] << "\n";
-		std::cout << gomoku::PLAYER2 << " win:" << stats[gomoku::PLAYER2] << "\n";
-		std::cout << "Tie" << " win:" << stats[gomoku::EMPTY] << "\n";
+		std::cout << PLAYER1 << " win:" << stats[PLAYER1] << "\n";
+		std::cout << PLAYER2 << " win:" << stats[PLAYER2] << "\n";
+		std::cout << "Tie" << " win:" << stats[EMPTY] << "\n";
 	}
 #endif
 }

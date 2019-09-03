@@ -8,3 +8,7 @@
 #else
 #include <parallel_hashmap/phmap.h>
 #endif
+
+#define ENABLE_JSON 1
+
+#define ENABLE_COROUTINE 0

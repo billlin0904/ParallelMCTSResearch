@@ -9,6 +9,10 @@
 #include "node.h"
 #include "ucbpolicy.h"
 
+#if ENABLE_COROUTINE
+#include "boost_coroutine.h"
+#endif
+
 #if USE_PPL && defined(_WIN32)
 #include <ppl.h>
 #else
@@ -36,7 +40,9 @@ public:
     Move Search();
 
     Move ParallelSearch();
-
+#if ENABLE_COROUTINE
+	boost::future<Move> SearchAsync();
+#endif
     void SetOpponentMove(const Move& opponent_move);
 
 	const node_ptr_type& GetCurrentNode() const;
@@ -160,6 +166,15 @@ Move MCTS<State, Move, UCB1Policy>::ParallelSearch() {
     current_node_ = GetBestChild(current_node_);
     return current_node_->GetLastMove();
 }
+
+#if ENABLE_COROUTINE
+template <typename State, typename Move, typename UCB1Policy>
+boost::future<Move> MCTS<State, Move, UCB1Policy>::SearchAsync() {
+	return boost::async(boost::launch::async, [this]() {
+		return ParallelSearch();
+		});
+}
+#endif
 
 template <typename State, typename Move, typename UCB1Policy>
 void MCTS<State, Move, UCB1Policy>::SetOpponentMove(const Move& opponent_move) {

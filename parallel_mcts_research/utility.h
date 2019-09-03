@@ -1,6 +1,6 @@
 #pragma once
 
-#define ENABLE_JSON 1
+#include "tweakme.h"
 
 #if ENABLE_JSON
 #define RAPIDJSON_HAS_STDSTRING 1

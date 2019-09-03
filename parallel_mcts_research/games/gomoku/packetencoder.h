@@ -45,6 +45,7 @@ struct PacketEncoder {
 		Document document;
 		Value packet(kObjectType);
 		packet.AddMember("cmd", CommandID::ENTER_LOBBY, document.GetAllocator());
+		packet.AddMember("pid", NewPacketID(), document.GetAllocator());
 		Value room_ids(kArrayType);
 		for (auto room_id : available_room) {
 			room_ids.PushBack(room_id, document.GetAllocator());
