@@ -187,6 +187,8 @@ public:
 
     void SentTo(SessionID session_id, const std::string& message);
 
+	void Boardcast(const phmap::flat_hash_set<SessionID>& groups, const std::string& message);
+
     void Run();
 
     void RemoveSession(SessionID session_id);
@@ -197,6 +199,8 @@ public:
 
     void SetBinaryFormat(bool enable = true);
 private:
+	void Sent(SessionID session_id, const std::string& message);
+
     void DoAccept();
 
     void OnAccept(boost::system::error_code ec, boost::asio::ip::tcp::socket socket);
@@ -228,6 +232,8 @@ public:
     void SentTo(SessionID session_id, const std::string& message);
 
     void BoardcastExcept(const std::string& message, int32_t except_session_id);
+
+	void Boardcast(const phmap::flat_hash_set<SessionID>& groups, const std::string& message);
 
     void Run();
 

@@ -6,6 +6,7 @@
 #include "../websocket/logger.h"
 #include "../websocket/websocket_server.h"
 
+#include "boost_coroutine.h"
 #include "packetencoder.h"
 #include "gamestate.h"
 
@@ -69,15 +70,15 @@ public:
 		return round_id_;
 	}
 
-	void Turn(SessionID session_id, const GomokuGameMove& move) {
+	boost::future<void> TurnAsync(SessionID session_id, const GomokuGameMove& move) {
 		assert(state_->IsLegalMove(move));
 		if (!IsPlayerTurn(session_id)) {
-			return;
+			co_return;
 		}
 		if (IsTerminal()) {
 			++win_statis_[state_->GetWinner()];
 			NewRound(session_id);
-			return;
+			co_return;
 		}
 		SetOpponentMove(move);
 		if (!IsTerminal()) {
@@ -87,6 +88,7 @@ public:
 			++win_statis_[state_->GetWinner()];
 			NewRound(session_id);
 		}
+		co_return;
 	}
 
 	int32_t GetPlayerCount() const {
@@ -94,18 +96,19 @@ public:
 	}
 
 	void LeavePlayer(SessionID session_id) {
+		ai_->Cancel();
 		players_.erase(session_id);
 		watchers_.erase(session_id);
 	}
 
 private:
-	void Turn(SessionID session_id) {
+	boost::future<void> Turn(SessionID session_id) {
 #ifdef _DEBUG
-		ai_->Initial(30, 30);
-		auto move = ai_->ParallelSearch();
+		ai_->Initial(300, 300);
+		auto move = co_await ai_->ParallelSearchAsync();
 #else
-		ai_->Initial(30, 30);
-		auto move = ai_->ParallelSearch();
+		ai_->Initial(3000, 3000);
+		auto move = co_await ai_->ParallelSearchAsync();
 #endif        
 		state_->ApplyMove(move);
 		std::cout << "Server move: " << move.ToString() << std::endl << *state_;
@@ -115,6 +118,7 @@ private:
 			round_id_, int32_t(ai_->GetCurrentNode()->GetWinRate() * 100));
 		server_->SentTo(session_id, msg);
 		BoardcastWatchers(msg);
+		co_return;
 	}
 
 	bool IsTerminal() const {
@@ -126,10 +130,7 @@ private:
 	}
 
 	void BoardcastWatchers(const std::string& message) {
-		for (auto session_id : watchers_) {
-			logger_->debug("Boardcast session id: {}.", session_id);
-			server_->SentTo(session_id, message);
-		}
+		server_->Boardcast(watchers_, message);
 	}
 	int32_t room_id_;
 	int32_t round_id_;
@@ -283,15 +284,16 @@ private:
 		room_.insert(std::make_pair(room_id, std::move(room)));
 	}
 
-	void OnTurn(const Value& packet, SessionID seesion_id, int32_t room_id) {
+	boost::future<void> OnTurn(const Value& packet, SessionID seesion_id, int32_t room_id) {
+		const GomokuGameMove move(packet["move"]["row"].GetInt(), packet["move"]["column"].GetInt());
+		logger_->debug("Server receive client move: {}.", move.ToString());
+		
 		auto itr = room_.find(room_id);
 		if (itr == room_.end()) {
-			return;
+			co_return;
 		}
-		const GomokuGameMove move(packet["move"]["row"].GetInt(), packet["move"]["column"].GetInt());
-		logger_->debug("Server receive client move: {} pid: {}.", move.ToString(), packet["pid"].GetInt());
-		assert(packet["round_id"].GetInt() == (*itr).second->GetRoundID());
-		(*itr).second->Turn(seesion_id, move);		
+		co_await (*itr).second->TurnAsync(seesion_id, move);
+		logger_->debug("Server final thinking!");
 	}
 
 	std::mutex mutex_;

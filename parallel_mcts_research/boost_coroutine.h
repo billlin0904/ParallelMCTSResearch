@@ -54,8 +54,9 @@ struct std::experimental::coroutine_traits<boost::future<R>, Args...> {
 			p.set_exception(std::move(e)); 
 		}
 
-		void return_void() {
-			p.set_value();
+		template <typename U>
+		void return_value(U &&u) {
+			p.set_value(std::forward<U>(u));
 		}
 	};
 };

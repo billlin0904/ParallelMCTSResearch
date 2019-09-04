@@ -62,6 +62,13 @@ void Listener::BoardcastExcepts(const std::string& message, const phmap::flat_ha
 	}
 }
 
+void Listener::Sent(SessionID session_id, const std::string& message) {
+	auto itr = sessions_.find(session_id);
+	if (itr != sessions_.end()) {
+		(*itr).second->Send(message);
+	}
+}
+
 void Listener::BoardcastExcept(const std::string& message, SessionID except_session_id) {
     std::lock_guard<std::mutex> guard{ mutex_ };
     for (auto& sess : sessions_) {
@@ -73,10 +80,14 @@ void Listener::BoardcastExcept(const std::string& message, SessionID except_sess
 
 void Listener::SentTo(SessionID session_id, const std::string& message) {
     std::lock_guard<std::mutex> guard{ mutex_ };
-    auto itr = sessions_.find(session_id);
-    if (itr != sessions_.end()) {
-        (*itr).second->Send(message);
-    }
+	Sent(session_id, message);
+}
+
+void Listener::Boardcast(const phmap::flat_hash_set<SessionID>& groups, const std::string& message) {
+	std::lock_guard<std::mutex> guard{ mutex_ };
+	for (auto& session_id : groups) {
+		Sent(session_id, message);
+	}
 }
 
 void Listener::Run() {
@@ -173,6 +184,10 @@ void WebSocketServer::SentTo(SessionID session_id, const std::string& message) {
 
 void WebSocketServer::BoardcastExcept(const std::string& message, int32_t except_session_id) {
 	listener_->BoardcastExcept(message, except_session_id);
+}
+
+void WebSocketServer::Boardcast(const phmap::flat_hash_set<SessionID>& groups, const std::string& message) {
+	listener_->Boardcast(groups, message);
 }
 
 void WebSocketServer::Run() {

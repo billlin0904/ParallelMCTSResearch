@@ -2,10 +2,12 @@
 
 #include <cstdint>
 #include <sstream>
+#include <iomanip>
 
-#include "gamemove.h"
 #include "../mcts.h"
 #include "../rng.h"
+
+#include "gamemove.h"
 
 namespace gomoku {
 

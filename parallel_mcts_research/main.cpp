@@ -21,9 +21,9 @@ int main() {
 			ios.run();
 			});
 	}
-#if 1
+#if 0
 #ifdef _DEBUG
-	const int32_t MAX_CLIENT = 1;
+	const int32_t MAX_CLIENT = 10;
 #else
 	const int32_t MAX_CLIENT = 10;
 #endif
