@@ -2,15 +2,65 @@
 
 #include <iostream>
 
+#include "games/tictactoe/gamestate.h"
+#include "games/tictactoe/gamemove.h"
+
 #include "games/gomoku/gamestate.h"
 #include "games/gomoku/gameserver.h"
 #include "games/gomoku/gameclient.h"
 
-using namespace gomoku;
 using namespace websocket;
+
+template <typename State, typename Move>
+void Simulation() {
+	std::map<int8_t, size_t> stats;
+
+	while (true) {
+		mcts::MCTS<State, Move> ai1;
+		mcts::MCTS<State, Move> ai2;
+		State game;
+
+		ai1.Initial(300, 300);
+		ai2.Initial(300, 300);
+
+		std::cout << game;
+
+		while (!game.IsTerminal()) {
+			if (game.GetPlayerID() == 2) {
+				auto move = ai2.ParallelSearch();
+				assert(game.IsLegalMove(move));
+				std::cout << "AI2 turn!" << "\n";
+				game.ApplyMove(move);
+				ai1.SetOpponentMove(move);
+			}
+			else {
+				auto move = ai1.ParallelSearch();
+				assert(game.IsLegalMove(move));
+				std::cout << "AI1 turn!" << "\n";
+				game.ApplyMove(move);
+				ai2.SetOpponentMove(move);
+			}
+			std::cout << game;
+		}
+
+		std::cout << game;
+
+		if (game.IsWinnerExsts()) {
+			stats[game.GetWinner()]++;
+		}
+		else {
+			stats[State::EMPTY]++;
+		}
+
+		std::cout << State::PLAYER1 << " win:" << stats[State::PLAYER1] << "\n";
+		std::cout << State::PLAYER2 << " win:" << stats[State::PLAYER2] << "\n";
+		std::cout << "Tie" << " win:" << stats[State::EMPTY] << "\n";
+	}
+}
 
 int main() {
 #if 1
+	using namespace gomoku;
 	GomokuGameServer server;
 	server.Bind("0.0.0.0", 9090);
 	server.Listen();
@@ -48,48 +98,9 @@ int main() {
 	server.Run();
 
 #else
-	std::map<int8_t, size_t> stats;
-
-	while (true) {
-		mcts::MCTS<GomokuGameState, GomokuGameMove> ai1;
-		mcts::MCTS<GomokuGameState, GomokuGameMove> ai2;
-		GomokuGameState game;
-
-		ai1.Initial(300, 300);
-		ai2.Initial(300, 300);
-
-		std::cout << game;
-
-		while (!game.IsTerminal()) {
-			if (game.GetPlayerID() == 2) {
-				auto move = ai2.ParallelSearch();
-				assert(game.IsLegalMove(move));
-				std::cout << "AI2 turn!" << "\n";
-				game.ApplyMove(move);
-				ai1.SetOpponentMove(move);
-			}
-			else {
-				auto move = ai1.ParallelSearch();
-				assert(game.IsLegalMove(move));
-				std::cout << "AI1 turn!" << "\n";
-				game.ApplyMove(move);
-				ai2.SetOpponentMove(move);
-			}
-			std::cout << game;
-		}
-
-		std::cout << game;
-
-		if (game.IsWinnerExsts()) {
-			stats[game.GetWinner()]++;
-		}
-		else {
-			stats[gomoku::EMPTY]++;
-		}
-
-		std::cout << PLAYER1 << " win:" << stats[PLAYER1] << "\n";
-		std::cout << PLAYER2 << " win:" << stats[PLAYER2] << "\n";
-		std::cout << "Tie" << " win:" << stats[EMPTY] << "\n";
-	}
+	using namespace gomoku;
+	Simulation<GomokuGameState, GomokuGameMove>();
+	//using namespace tictactoe;
+	//Simulation<TicTacToeGameState, TicTacToeGameMove>();
 #endif
 }

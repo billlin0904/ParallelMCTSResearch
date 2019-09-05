@@ -24,8 +24,8 @@ public:
 		, round_count_(1)
 		, server_(server)
 		, logger_(Logger::Get().GetLogger("GomokuRoom")) {
-		win_statis_[PLAYER1] = 0;
-		win_statis_[PLAYER2] = 0;
+		win_statis_[GomokuGameState::PLAYER1] = 0;
+		win_statis_[GomokuGameState::PLAYER2] = 0;
 	}
 
 	void EnterRoom(SessionID session_id, bool is_watch) {
@@ -55,8 +55,8 @@ public:
 
 		logger_->debug("Round:{} O Win: {}({}%), @¡@Win: {}({}%)",
 			round_count_,
-			win_statis_[PLAYER1], win_statis_[PLAYER1] / double(round_count_),
-			win_statis_[PLAYER2], win_statis_[PLAYER2] / double(round_count_));
+			win_statis_[GomokuGameState::PLAYER1], win_statis_[GomokuGameState::PLAYER1] / double(round_count_),
+			win_statis_[GomokuGameState::PLAYER2], win_statis_[GomokuGameState::PLAYER2] / double(round_count_));
 		logger_->debug("Server send NewRound round id:{}.", round_id_);
 
 		++round_count_;

@@ -13,12 +13,12 @@ namespace tictactoe {
 
 using namespace mcts;
 
-static const int8_t PLAYER1 = 'O';
-static const int8_t PLAYER2 = 'X';
-static const int8_t EMPTY = ' ';
-
 class TicTacToeGameState {
 public:
+	static const int8_t PLAYER1 = 'O';
+	static const int8_t PLAYER2 = 'X';
+	static const int8_t EMPTY = ' ';
+
 	TicTacToeGameState() noexcept
 		: winner_exists_(false)
 		, is_terminal_(false)
@@ -123,6 +123,10 @@ public:
 			ostr << board_[idx] << board_[idx + 1] << board_[idx + 2];
 		}
 		return ostr.str();
+	}
+
+	int8_t GetWinner() const {
+		return player_id_;
 	}
 
 private:
