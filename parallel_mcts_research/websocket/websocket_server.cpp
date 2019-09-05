@@ -9,7 +9,7 @@ static SessionID NewSessionID() noexcept {
 
 Listener::Listener(ServerCallback* callback, const std::string& server_ver, boost::asio::io_context& ioc)
     : is_binray_(false)
-	, max_session_(65535)
+	, max_session_limit_(std::numeric_limits<uint16_t>::max())
     , ioc_(ioc)
     , acceptor_(boost::asio::make_strand(ioc))
     , callback_(callback)
@@ -62,7 +62,7 @@ void Listener::BoardcastExcepts(const std::string& message, const phmap::flat_ha
 	}
 }
 
-void Listener::Sent(SessionID session_id, const std::string& message) {
+void Listener::Send(SessionID session_id, const std::string& message) {
 	auto itr = sessions_.find(session_id);
 	if (itr != sessions_.end()) {
 		(*itr).second->Send(message);
@@ -80,13 +80,12 @@ void Listener::BoardcastExcept(const std::string& message, SessionID except_sess
 
 void Listener::SentTo(SessionID session_id, const std::string& message) {
     std::lock_guard<std::mutex> guard{ mutex_ };
-	Sent(session_id, message);
+	Send(session_id, message);
 }
 
-void Listener::Boardcast(const phmap::flat_hash_set<SessionID>& groups, const std::string& message) {
-	std::lock_guard<std::mutex> guard{ mutex_ };
+void Listener::Boardcast(const phmap::flat_hash_set<SessionID>& groups, const std::string& message) {	
 	for (auto& session_id : groups) {
-		Sent(session_id, message);
+		Send(session_id, message);
 	}
 }
 
@@ -98,10 +97,12 @@ void Listener::Run() {
 }
 
 bool Listener::IsSessionExists(SessionID session_id) const {
+	std::lock_guard<std::mutex> guard{ mutex_ };
 	return sessions_.find(session_id) != sessions_.end();
 }
 
 void Listener::RemoveSession(SessionID session_id) {
+	std::lock_guard<std::mutex> guard{ mutex_ };
     sessions_.erase(session_id);
 }
 
@@ -139,12 +140,16 @@ void Listener::OnAccept(boost::system::error_code ec, boost::asio::ip::tcp::sock
     DoAccept();
 }
 
-void Listener::SetMaxSession(size_t max_session) {
+size_t Listener::GetMaxSessionLimit() const {
+	return max_session_limit_;
+}
+
+void Listener::SetMaxSessionLimit(size_t max_session) {
 	std::lock_guard<std::mutex> guard{ mutex_ };
-	max_session_ = max_session;
-	if (sessions_.size() > max_session_) {
+	max_session_limit_ = max_session;
+	if (sessions_.size() > max_session_limit_) {
 		for (size_t i = 0; i < sessions_.size(); ++i) {
-			if (i > max_session_) {
+			if (i > max_session_limit_) {
 				sessions_.erase(sessions_.begin());
 			}
 		}
@@ -186,7 +191,7 @@ void WebSocketServer::BoardcastExcept(const std::string& message, int32_t except
 	listener_->BoardcastExcept(message, except_session_id);
 }
 
-void WebSocketServer::Boardcast(const phmap::flat_hash_set<SessionID>& groups, const std::string& message) {
+void WebSocketServer::Boardcast(const SessionSet& groups, const std::string& message) {
 	listener_->Boardcast(groups, message);
 }
 

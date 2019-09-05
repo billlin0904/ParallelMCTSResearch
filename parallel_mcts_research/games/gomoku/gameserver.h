@@ -1,3 +1,5 @@
+// Copyright (c) 2019 ParallelMCTSResearch project.
+
 #pragma once
 
 #include <iostream>
@@ -27,7 +29,6 @@ public:
 	}
 
 	void EnterRoom(SessionID session_id, bool is_watch) {
-		auto pid = NewPacketID();
 		if (players_.empty() && !is_watch) {
 			players_.insert(session_id);
 			server_->SentTo(session_id, PacketEncoder::EnterRoom(room_id_, round_id_));
@@ -35,7 +36,7 @@ public:
 		else {
 			watchers_.insert(session_id);
 			BoardcastWatchers(PacketEncoder::EnterRoom(room_id_, round_id_));
-			logger_->debug("Server send EnterRoom pid: {}.", pid);
+			logger_->debug("Server send EnterRoom");
 		}
 	}
 
@@ -43,7 +44,11 @@ public:
 		ai_.reset(new MCTS<GomokuGameState, GomokuGameMove>());
 		state_.reset(new GomokuGameState());
 		round_id_ = NewRoundID();
-
+#ifdef _DEBUG
+		ai_->Initial(300, 300);
+#else
+		ai_->Initial(3000, 3000);
+#endif
 		const auto msg = PacketEncoder::StartRound(room_id_, round_id_);
 		server_->SentTo(session_id, msg);
 		BoardcastWatchers(msg);
@@ -73,22 +78,21 @@ public:
 	boost::future<void> TurnAsync(SessionID session_id, const GomokuGameMove& move) {
 		assert(state_->IsLegalMove(move));
 		if (!IsPlayerTurn(session_id)) {
-			co_return;
+			return;
 		}
 		if (IsTerminal()) {
 			++win_statis_[state_->GetWinner()];
 			NewRound(session_id);
-			co_return;
+			return;
 		}
 		SetOpponentMove(move);
 		if (!IsTerminal()) {
-			Turn(session_id);
+			co_await TurnAsync(session_id);
 		}
 		if (IsTerminal()) {
 			++win_statis_[state_->GetWinner()];
 			NewRound(session_id);
 		}
-		co_return;
 	}
 
 	int32_t GetPlayerCount() const {
@@ -102,23 +106,18 @@ public:
 	}
 
 private:
-	boost::future<void> Turn(SessionID session_id) {
-#ifdef _DEBUG
-		ai_->Initial(300, 300);
+	boost::future<void> TurnAsync(SessionID session_id) {
 		auto move = co_await ai_->ParallelSearchAsync();
-#else
-		ai_->Initial(3000, 3000);
-		auto move = co_await ai_->ParallelSearchAsync();
-#endif        
+  
 		state_->ApplyMove(move);
 		std::cout << "Server move: " << move.ToString() << std::endl << *state_;
 
 		auto msg = PacketEncoder::Turn(move, *state_, *ai_, room_id_, round_id_);
 		logger_->debug("Server send Turn round: {} winrate: {}%.",
-			round_id_, int32_t(ai_->GetCurrentNode()->GetWinRate() * 100));
+			round_id_, 
+			int32_t(ai_->GetCurrentNode()->GetWinRate() * 100));
 		server_->SentTo(session_id, msg);
-		BoardcastWatchers(msg);
-		co_return;
+		BoardcastWatchers(msg);		
 	}
 
 	bool IsTerminal() const {
@@ -137,8 +136,8 @@ private:
 	int32_t round_count_;
 	WebSocketServer* server_;
 	phmap::flat_hash_map<int8_t, int32_t> win_statis_;
-	phmap::flat_hash_set<SessionID> players_;
-	phmap::flat_hash_set<SessionID> watchers_;
+	SessionSet players_;
+	SessionSet watchers_;
 	std::unique_ptr<MCTS<GomokuGameState, GomokuGameMove>> ai_;
 	std::unique_ptr<GomokuGameState> state_;
 	std::shared_ptr<spdlog::logger> logger_;

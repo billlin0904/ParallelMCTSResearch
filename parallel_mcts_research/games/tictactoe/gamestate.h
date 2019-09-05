@@ -1,9 +1,12 @@
+// Copyright (c) 2019 ParallelMCTSResearch project.
+
 #pragma once
 
 #include <cstdint>
 
 #include "../mcts.h"
 #include "../rng.h"
+#include "../tweakme.h"
 #include "gamemove.h"
 
 namespace tictactoe {
@@ -77,8 +80,8 @@ public:
 		return board_.at(move.index) == EMPTY;
 	}
 
-	mcts::HashSet<TicTacToeGameMove> GetLegalMoves() const noexcept {
-		mcts::HashSet<TicTacToeGameMove> legal_moves;
+	HashSet<TicTacToeGameMove> GetLegalMoves() const noexcept {
+		HashSet<TicTacToeGameMove> legal_moves;
 		int32_t i = 0;
 		for (auto c : board_) {
 			if (c == EMPTY) {

@@ -1,3 +1,5 @@
+// Copyright (c) 2019 ParallelMCTSResearch project.
+
 #include <iostream>
 
 #include "games/gomoku/gamestate.h"
@@ -21,11 +23,11 @@ int main() {
 			ios.run();
 			});
 	}
-#if 0
+#if 1
 #ifdef _DEBUG
-	const int32_t MAX_CLIENT = 10;
+	const int32_t MAX_CLIENT = 1;
 #else
-	const int32_t MAX_CLIENT = 10;
+	const int32_t MAX_CLIENT = 1;
 #endif
 	const auto scheme = "ws";
 	const auto host = "127.0.0.1";

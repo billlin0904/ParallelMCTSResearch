@@ -1,3 +1,5 @@
+// Copyright (c) 2019 ParallelMCTSResearch project.
+
 #pragma once
 
 #include <string>
@@ -104,9 +106,9 @@ private:
 
 template
 <
-        typename TaskType,
-        template <typename> class Queue = TaskQueue
-        >
+	typename TaskType,
+    template <typename> class Queue = TaskQueue
+>
 class TaskScheduler {
 public:
     explicit TaskScheduler(size_t max_thread)

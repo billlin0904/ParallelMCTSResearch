@@ -1,3 +1,5 @@
+// Copyright (c) 2019 ParallelMCTSResearch project.
+
 #pragma once
 
 #include <cstdint>
@@ -11,14 +13,14 @@
 
 namespace gomoku {
 
+using namespace mcts;
+
 static const int32_t MAX_WIDTH = 10;
 static const int32_t MAX_HEIGHT = 10;
 
 static const int8_t PLAYER1 = 'O';
 static const int8_t PLAYER2 = '@';
 static const int8_t EMPTY = ' ';
-
-using namespace mcts;
 
 class GomokuGameState {
 public:

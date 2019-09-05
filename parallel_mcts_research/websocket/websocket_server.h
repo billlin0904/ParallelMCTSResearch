@@ -22,6 +22,9 @@
 
 namespace websocket {
 
+using SessionID = int64_t;
+using SessionSet = phmap::flat_hash_set<SessionID>;
+
 class Session;
 class Exception;
 
@@ -36,8 +39,6 @@ public:
 protected:
     ServerCallback() = default;
 };
-
-using SessionID = int64_t;
 
 class Session : public std::enable_shared_from_this<Session> {
 public:
@@ -195,21 +196,23 @@ public:
 
 	bool IsSessionExists(SessionID session_id) const;
 
-	void SetMaxSession(size_t max_session);
+	void SetMaxSessionLimit(size_t max_session);
+
+	size_t GetMaxSessionLimit() const;
 
     void SetBinaryFormat(bool enable = true);
 private:
-	void Sent(SessionID session_id, const std::string& message);
+	void Send(SessionID session_id, const std::string& message);
 
     void DoAccept();
 
     void OnAccept(boost::system::error_code ec, boost::asio::ip::tcp::socket socket);
 
     bool is_binray_;
-	size_t max_session_;
+	size_t max_session_limit_;
     boost::asio::io_context& ioc_;
     boost::asio::ip::tcp::acceptor acceptor_;
-    std::mutex mutex_;
+    mutable std::mutex mutex_;
     ServerCallback* callback_;
     std::map<SessionID, std::shared_ptr<Session>> sessions_;
     std::string server_ver_;
@@ -233,7 +236,7 @@ public:
 
     void BoardcastExcept(const std::string& message, int32_t except_session_id);
 
-	void Boardcast(const phmap::flat_hash_set<SessionID>& groups, const std::string& message);
+	void Boardcast(const SessionSet& groups, const std::string& message);
 
     void Run();
 

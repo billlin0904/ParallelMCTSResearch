@@ -1,3 +1,5 @@
+// Copyright (c) 2019 ParallelMCTSResearch project.
+
 #pragma once
 
 #include <vector>
@@ -22,13 +24,16 @@ namespace mcts {
 template <typename State, typename Move, typename UCB1Policy = DefaultUCB1Policy>
 class MCTS {
 public:
+	static const int32_t MAX_EVALUATE_COUNT = 64;
+	static const int32_t MAX_ROLLOUT_COUNT = 128;
+
     using node_type = Node<State, Move, UCB1Policy>;
     using node_ptr_type = typename Node<State, Move, UCB1Policy>::ptr_type;
     using children_vector_type = std::vector<node_ptr_type>;
 
-    MCTS(int32_t evaluate_count = 64, int32_t rollout_limit = 128);
+    MCTS(int32_t evaluate_count = MAX_EVALUATE_COUNT, int32_t rollout_limit = MAX_ROLLOUT_COUNT);
 
-    explicit MCTS(const State& state, int32_t evaluate_count = 64, int32_t rollout_limit = 128);
+    explicit MCTS(const State& state, int32_t evaluate_count = MAX_EVALUATE_COUNT, int32_t rollout_limit = MAX_ROLLOUT_COUNT);
 
     MCTS(const MCTS&) = default;
     MCTS& operator=(const MCTS &) = default;
@@ -36,6 +41,8 @@ public:
     void Initial(int32_t evaluate_count, int32_t rollout_limit);
 
     Move Search();
+
+	boost::future<Move> SearchAsync();
 
     Move ParallelSearch();
 
@@ -138,6 +145,11 @@ Move MCTS<State, Move, UCB1Policy>::Search() {
 }
 
 template <typename State, typename Move, typename UCB1Policy>
+boost::future<Move> MCTS<State, Move, UCB1Policy>::SearchAsync() {
+	co_return Search();
+}
+
+template <typename State, typename Move, typename UCB1Policy>
 Move MCTS<State, Move, UCB1Policy>::ParallelSearch() {
 	cancelled_ = false;
     // Leaf Parallelisation
@@ -201,7 +213,8 @@ inline typename MCTS<State, Move, UCB1Policy>::node_ptr_type MCTS<State, Move, U
 }
 
 template <typename State, typename Move, typename UCB1Policy>
-inline typename MCTS<State, Move, UCB1Policy>::node_ptr_type MCTS<State, Move, UCB1Policy>::Expand(typename MCTS<State, Move, UCB1Policy>::node_ptr_type& parent) {
+inline typename MCTS<State, Move, UCB1Policy>::node_ptr_type MCTS<State, Move, UCB1Policy>::Expand(
+	typename MCTS<State, Move, UCB1Policy>::node_ptr_type& parent) {
     if (!parent->HasPassibleMoves()) {
         const auto& available_moves = parent->GetMoves();
 		auto itr = std::next(std::begin(available_moves), RNG::Get()(0, int32_t(available_moves.size() - 1)));

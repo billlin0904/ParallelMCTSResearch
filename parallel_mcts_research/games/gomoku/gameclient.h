@@ -1,10 +1,12 @@
+// Copyright (c) 2019 ParallelMCTSResearch project.
+
 #pragma once
 
 #include <iostream>
 
 #include "../websocket/logger.h"
 #include "../websocket/websocket_client.h"
-
+#include "boost_coroutine.h"
 #include "packetencoder.h"
 #include "gamestate.h"
 
@@ -51,10 +53,10 @@ public:
 				round_id_ = packet["round_id"].GetInt();
 			}
 			room_id_ = packet["room_id"].GetInt();
-			NewRoundOrEnterRoom(s, cmd);
+			EnterRoomAsync(s, cmd);
 		}
 		else if (cmd == CommandID::TURN) {
-			Turn(s, packet);
+			TurnAsync(s, packet);
 		}
 		s->Receive();
 	}
@@ -64,7 +66,7 @@ public:
 		std::cerr.flush();
 	}
 private:
-	void NewRoundOrEnterRoom(const std::shared_ptr<WebSocketClient>& s, CommandID cmd) {
+	boost::future<void> EnterRoomAsync(const std::shared_ptr<WebSocketClient>& s, CommandID cmd) {
 		if (cmd == CommandID::START_ROUND) {
 			if (round_id_ > 0 && !state_->IsEmptyMove()) {
 				assert(state_->IsTerminal());
@@ -72,11 +74,10 @@ private:
 				ai_.reset(new MCTS<GomokuGameState, GomokuGameMove>());
 #ifdef _DEBUG        
 				ai_->Initial(10, 30);
-				auto move = ai_->Search();
 #else
-				ai_->Initial(100, 2000);
-				auto move = ai_->ParallelSearch();
+				ai_->Initial(100, 2000);				
 #endif
+				auto move = await ai_->ParallelSearchAsync();
 				state_->ApplyMove(move);
 				s->Send(PacketEncoder::Turn(move, *state_, *ai_, room_id_, round_id_));
 				logger_->debug("Client send Turn round_id: {}", round_id_);
@@ -85,20 +86,15 @@ private:
 		else if (cmd == CommandID::ENTER_ROOM) {
 			state_.reset(new GomokuGameState());
 			ai_.reset(new MCTS<GomokuGameState, GomokuGameMove>());
-#ifdef _DEBUG        
-			ai_->Initial(10, 30);
-			auto move = ai_->Search();
-#else
-			ai_->Initial(100, 2000);
-			auto move = ai_->ParallelSearch();
-#endif
+			auto move = co_await ai_->ParallelSearchAsync();
 			state_->ApplyMove(move);
 			s->Send(PacketEncoder::Turn(move, *state_, *ai_, room_id_, round_id_));
 			logger_->debug("Client send Turn round_id: {}", round_id_);
 		}
+		co_return;
 	}
 
-	void Turn(const std::shared_ptr<WebSocketClient>& s, const Value& packet) {
+	boost::future<void> TurnAsync(const std::shared_ptr<WebSocketClient>& s, const Value& packet) {
 		assert(packet["round_id"].GetInt() == round_id_);
 
 		GomokuGameMove move(packet["move"]["row"].GetInt(), packet["move"]["column"].GetInt());
@@ -109,21 +105,16 @@ private:
 
 		if (state_->IsTerminal()) {
 			logger_->debug("Client receive final move round id:{}, Wait new round.", round_id_);
+			co_return;
 		}
-		else {
-#ifdef _DEBUG
-			ai_->Initial(10, 30);
-			auto search_move = ai_->Search();
-#else
-			ai_->Initial(100, 2000);
-			auto search_move = ai_->ParallelSearch();
-#endif
-			assert(state_->IsLegalMove(search_move));
-			state_->ApplyMove(search_move);
-			s->Send(PacketEncoder::Turn(search_move, *state_, *ai_, room_id_, round_id_));
-			logger_->debug("Client send Turn round_id: {}", round_id_);
-			std::cout << "Client move: " << move.ToString() << std::endl << *state_;
-		}
+
+		auto search_move = co_await ai_->ParallelSearchAsync();
+		assert(state_->IsLegalMove(search_move));
+		state_->ApplyMove(search_move);
+		s->Send(PacketEncoder::Turn(search_move, *state_, *ai_, room_id_, round_id_));
+		logger_->debug("Client send Turn round_id: {}", round_id_);
+		std::cout << "Client move: " << move.ToString() << std::endl << *state_;
+		co_return;
 	}
 
 	int32_t room_id_;

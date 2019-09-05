@@ -1,3 +1,5 @@
+// Copyright (c) 2019 ParallelMCTSResearch project.
+
 #pragma once
 
 #include <memory>
@@ -7,14 +9,6 @@
 #include "tweakme.h"
 
 namespace mcts {
-
-#if USE_STD_UNORDERED_SET
-template <typename T>
-using HashSet = phmap::unordered_set<T>;
-#else
-template <typename T>
-using HashSet = phmap::flat_hash_set<T>;
-#endif
 
 template <typename State, typename Move, typename UCB1Policy>
 class Node;
