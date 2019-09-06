@@ -10,33 +10,37 @@
 #include "games/gomoku/gameclient.h"
 
 using namespace websocket;
+using namespace mcts;
 
 template <typename State, typename Move>
-void Simulation() {
+std::future<void> Simulation() {
 	std::map<int8_t, size_t> stats;
 
 	while (true) {
-		mcts::MCTS<State, Move> ai1;
-		mcts::MCTS<State, Move> ai2;
+		MCTS<State, Move> ai1;
+		MCTS<State, Move> ai2;
 		State game;
-
-		ai1.Initial(300, 300);
-		ai2.Initial(300, 300);
-
+#ifdef _DEBUG
+		ai1.Initial(10, 10);
+		ai2.Initial(10, 10);
+#else
+		ai1.Initial(1000, 1000);
+		ai2.Initial(1000, 1000);
+#endif
 		std::cout << game;
 
 		while (!game.IsTerminal()) {
 			if (game.GetPlayerID() == 2) {
-				auto move = ai2.ParallelSearch();
+				auto move = await ai2.ParallelSearchAsync();
 				assert(game.IsLegalMove(move));
-				std::cout << "AI2 turn!" << "\n";
+				std::cout << "AI2 turn! WinRate:" << int32_t(ai2.GetCurrentNode()->GetWinRate() * 100) << "%\n";
 				game.ApplyMove(move);
 				ai1.SetOpponentMove(move);
 			}
 			else {
-				auto move = ai1.ParallelSearch();
+				auto move = await ai1.ParallelSearchAsync();
 				assert(game.IsLegalMove(move));
-				std::cout << "AI1 turn!" << "\n";
+				std::cout << "AI1 turn!  WinRate:" << int32_t(ai1.GetCurrentNode()->GetWinRate() * 100) << "%\n";
 				game.ApplyMove(move);
 				ai2.SetOpponentMove(move);
 			}
@@ -59,7 +63,7 @@ void Simulation() {
 }
 
 int main() {
-#if 1
+#if 0
 	using namespace gomoku;
 	GomokuGameServer server;
 	server.Bind("0.0.0.0", 9090);
@@ -99,8 +103,8 @@ int main() {
 
 #else
 	using namespace gomoku;
-	Simulation<GomokuGameState, GomokuGameMove>();
+	Simulation<GomokuGameState, GomokuGameMove>().get();
 	//using namespace tictactoe;
-	//Simulation<TicTacToeGameState, TicTacToeGameMove>();
+	//Simulation<TicTacToeGameState, TicTacToeGameMove>().get();
 #endif
 }

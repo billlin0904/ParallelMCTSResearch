@@ -3,6 +3,7 @@
 #pragma once
 
 #include <random>
+#include <mutex>
 #include <algorithm>
 #include <functional>
 
@@ -14,7 +15,8 @@ public:
 
     template <typename T>
     inline T operator()(T min, T max) noexcept {
-        return std::uniform_int_distribution<T>(min, max)(engine_);
+		static thread_local std::uniform_int_distribution<T> distribution;
+		return distribution(engine_, decltype(distribution)::param_type{ min, max });
     }
 
 private:
