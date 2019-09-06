@@ -181,6 +181,7 @@
     <ClInclude Include="games\gomoku\gamestate.h" />
     <ClInclude Include="games\tictactoe\gamemove.h" />
     <ClInclude Include="games\tictactoe\gamestate.h" />
+    <ClInclude Include="games\xiangqi\pieces.h" />
     <ClInclude Include="games\xiang_qi\gamemove.h" />
     <ClInclude Include="games\xiang_qi\gamestate.h" />
     <ClInclude Include="mcts.h" />

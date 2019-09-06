@@ -13,7 +13,7 @@
 
 #if USE_STD_UNORDERED_SET
 template <typename T>
-using HashSet = phmap::unordered_set<T>;
+using HashSet = std::unordered_set<T>;
 #else
 template <typename T>
 using HashSet = phmap::flat_hash_set<T>;

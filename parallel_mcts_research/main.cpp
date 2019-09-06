@@ -2,6 +2,9 @@
 
 #include <iostream>
 
+#include "games/xiangqi/gamemove.h"
+#include "games/xiangqi/gamestate.h"
+
 #include "games/tictactoe/gamestate.h"
 #include "games/tictactoe/gamemove.h"
 
@@ -102,9 +105,11 @@ int main() {
 	server.Run();
 
 #else
-	using namespace gomoku;
-	Simulation<GomokuGameState, GomokuGameMove>().get();
+	//using namespace gomoku;
+	//Simulation<GomokuGameState, GomokuGameMove>().get();
 	//using namespace tictactoe;
 	//Simulation<TicTacToeGameState, TicTacToeGameMove>().get();
+	using namespace xiangqi;
+	Simulation<XiangQiGameState, XiangQiGameMove>().get();
 #endif
 }
