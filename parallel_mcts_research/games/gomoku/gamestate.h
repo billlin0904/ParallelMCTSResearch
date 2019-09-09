@@ -66,7 +66,6 @@ public:
 			CheckTerminal();
 		}
 		player_id_ = ((player_id_ == 1) ? 2 : 1);
-		last_move_ = move;
 	}
 
 	double Evaluate() const noexcept {
@@ -196,7 +195,6 @@ private:
 	bool is_terminal_;
 	int8_t player_id_;
 	int32_t remain_move_;
-	GomokuGameMove last_move_;
 	HashSet<GomokuGameMove> legal_moves_;
 	std::vector<std::vector<int8_t>> board_;
 };

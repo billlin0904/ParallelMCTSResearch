@@ -23,7 +23,7 @@ public:
 	}
 
 	void OnConnected(std::shared_ptr<WebSocketClient> s) override {
-		state_.reset(new GomokuGameState());
+		board_states_.reset(new GomokuGameState());
 		s->Send(PacketEncoder::EnterRoom(room_id_, round_id_));
 		s->Receive();
 	}
@@ -68,9 +68,9 @@ public:
 private:
 	boost::future<void> EnterRoomAsync(const std::shared_ptr<WebSocketClient>& s, CommandID cmd) {
 		if (cmd == CommandID::START_ROUND) {
-			if (round_id_ > 0 && !state_->IsEmptyMove()) {
-				assert(state_->IsTerminal());
-				state_.reset(new GomokuGameState());
+			if (round_id_ > 0 && !board_states_->IsEmptyMove()) {
+				assert(board_states_->IsTerminal());
+				board_states_.reset(new GomokuGameState());
 				ai_.reset(new MCTS<GomokuGameState, GomokuGameMove>());
 #ifdef _DEBUG        
 				ai_->Initial(10, 30);
@@ -78,17 +78,17 @@ private:
 				ai_->Initial(100, 2000);				
 #endif
 				auto move = await ai_->ParallelSearchAsync();
-				state_->ApplyMove(move);
-				s->Send(PacketEncoder::Turn(move, *state_, *ai_, room_id_, round_id_));
+				board_states_->ApplyMove(move);
+				s->Send(PacketEncoder::Turn(move, *board_states_, *ai_, room_id_, round_id_));
 				logger_->debug("Client send Turn round_id: {}", round_id_);
 			}
 		}
 		else if (cmd == CommandID::ENTER_ROOM) {
-			state_.reset(new GomokuGameState());
+			board_states_.reset(new GomokuGameState());
 			ai_.reset(new MCTS<GomokuGameState, GomokuGameMove>());
 			auto move = co_await ai_->ParallelSearchAsync();
-			state_->ApplyMove(move);
-			s->Send(PacketEncoder::Turn(move, *state_, *ai_, room_id_, round_id_));
+			board_states_->ApplyMove(move);
+			s->Send(PacketEncoder::Turn(move, *board_states_, *ai_, room_id_, round_id_));
 			logger_->debug("Client send Turn round_id: {}", round_id_);
 		}
 		co_return;
@@ -98,22 +98,22 @@ private:
 		assert(packet["round_id"].GetInt() == round_id_);
 
 		GomokuGameMove move(packet["move"]["row"].GetInt(), packet["move"]["column"].GetInt());
-		assert(state_->IsLegalMove(move));
+		assert(board_states_->IsLegalMove(move));
 
-		state_->ApplyMove(move);
+		board_states_->ApplyMove(move);
 		ai_->SetOpponentMove(move);
 
-		if (state_->IsTerminal()) {
+		if (board_states_->IsTerminal()) {
 			logger_->debug("Client receive final move round id:{}, Wait new round.", round_id_);
 			co_return;
 		}
 
 		auto search_move = co_await ai_->ParallelSearchAsync();
-		assert(state_->IsLegalMove(search_move));
-		state_->ApplyMove(search_move);
-		s->Send(PacketEncoder::Turn(search_move, *state_, *ai_, room_id_, round_id_));
+		assert(board_states_->IsLegalMove(search_move));
+		board_states_->ApplyMove(search_move);
+		s->Send(PacketEncoder::Turn(search_move, *board_states_, *ai_, room_id_, round_id_));
 		logger_->debug("Client send Turn round_id: {}", round_id_);
-		std::cout << "Client move: " << move.ToString() << std::endl << *state_;
+		std::cout << "Client move: " << move.ToString() << std::endl << *board_states_;
 		co_return;
 	}
 
@@ -121,7 +121,7 @@ private:
 	int32_t round_id_;
 	std::mutex mutex_;
 	std::unique_ptr<MCTS<GomokuGameState, GomokuGameMove>> ai_;
-	std::unique_ptr<GomokuGameState> state_;
+	std::unique_ptr<GomokuGameState> board_states_;
 	std::shared_ptr<spdlog::logger> logger_;
 };
 

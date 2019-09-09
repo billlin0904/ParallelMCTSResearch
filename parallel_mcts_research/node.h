@@ -27,18 +27,18 @@ public:
     using ptr_type = NodePtr<State, Move, UCB1Policy>;
     using parent_ptr_type = WeakPtr<State, Move, UCB1Policy>;
 
-    Node(const State& state = State(),
-         const Move& move = Move(),
+    Node(State state = State(),
+         Move move = Move(),
          NodePtr<State, Move, UCB1Policy> parent = nullptr)
         : player_id_(state.GetPlayerID())        
         , move_(move)
         , parent_(parent)
         , possible_moves_(state.GetLegalMoves())
-		, state_(state) {
+		, board_states_(state) {
     }
 
     ptr_type MakeChild(const Move &next_move) {
-        State next_state(state_);
+        State next_state(board_states_);
         next_state.ApplyMove(next_move);
         auto parent = this->shared_from_this();
         auto new_node = std::make_shared<self_type>(
@@ -75,7 +75,7 @@ public:
     }
 
     const State & GetState() const {
-        return state_;
+        return board_states_;
     }
 
 	const HashSet<Move>& GetMoves() const noexcept {
@@ -121,7 +121,7 @@ private:
 	UCB1Policy ucb1_policy_;
     std::vector<ptr_type> children_;
 	HashSet<Move> possible_moves_;
-	State state_;
+	State board_states_;
 };
 
 }

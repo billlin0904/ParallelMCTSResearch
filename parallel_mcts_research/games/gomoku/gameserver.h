@@ -42,7 +42,7 @@ public:
 
 	void NewRound(SessionID session_id) {
 		ai_.reset(new MCTS<GomokuGameState, GomokuGameMove>());
-		state_.reset(new GomokuGameState());
+		board_states_.reset(new GomokuGameState());
 		round_id_ = NewRoundID();
 #ifdef _DEBUG
 		ai_->Initial(300, 300);
@@ -63,9 +63,9 @@ public:
 	}
 
 	void SetOpponentMove(const GomokuGameMove& move) {
-		assert(state_->IsLegalMove(move));
+		assert(board_states_->IsLegalMove(move));
 
-		state_->ApplyMove(move);
+		board_states_->ApplyMove(move);
 		ai_->SetOpponentMove(move);
 
 		BoardcastWatchers(PacketEncoder::Turn(move, 0, room_id_, round_id_));
@@ -76,12 +76,12 @@ public:
 	}
 
 	boost::future<void> TurnAsync(SessionID session_id, const GomokuGameMove& move) {
-		assert(state_->IsLegalMove(move));
+		assert(board_states_->IsLegalMove(move));
 		if (!IsPlayerTurn(session_id)) {
 			return;
 		}
 		if (IsTerminal()) {
-			++win_statis_[state_->GetWinner()];
+			++win_statis_[board_states_->GetWinner()];
 			NewRound(session_id);
 			return;
 		}
@@ -90,7 +90,7 @@ public:
 			co_await TurnAsync(session_id);
 		}
 		if (IsTerminal()) {
-			++win_statis_[state_->GetWinner()];
+			++win_statis_[board_states_->GetWinner()];
 			NewRound(session_id);
 		}
 	}
@@ -109,10 +109,10 @@ private:
 	boost::future<void> TurnAsync(SessionID session_id) {
 		auto move = co_await ai_->ParallelSearchAsync();
   
-		state_->ApplyMove(move);
-		std::cout << "Server move: " << move.ToString() << std::endl << *state_;
+		board_states_->ApplyMove(move);
+		std::cout << "Server move: " << move.ToString() << std::endl << *board_states_;
 
-		auto msg = PacketEncoder::Turn(move, *state_, *ai_, room_id_, round_id_);
+		auto msg = PacketEncoder::Turn(move, *board_states_, *ai_, room_id_, round_id_);
 		logger_->debug("Server send Turn round: {} winrate: {}%.",
 			round_id_, 
 			int32_t(ai_->GetCurrentNode()->GetWinRate() * 100));
@@ -121,7 +121,7 @@ private:
 	}
 
 	bool IsTerminal() const {
-		return state_->IsTerminal();
+		return board_states_->IsTerminal();
 	}
 
 	bool IsPlayerTurn(SessionID session_id) const {
@@ -139,7 +139,7 @@ private:
 	SessionSet players_;
 	SessionSet watchers_;
 	std::unique_ptr<MCTS<GomokuGameState, GomokuGameMove>> ai_;
-	std::unique_ptr<GomokuGameState> state_;
+	std::unique_ptr<GomokuGameState> board_states_;
 	std::shared_ptr<spdlog::logger> logger_;
 };
 

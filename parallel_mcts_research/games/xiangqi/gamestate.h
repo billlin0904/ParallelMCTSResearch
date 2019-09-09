@@ -4,7 +4,10 @@
 
 #include <cassert>
 #include <vector>
+#include <iostream>
 #include <sstream>
+#include <iomanip>
+#include <optional>
 
 #include "../mcts.h"
 #include "pieces.h"
@@ -14,16 +17,291 @@ namespace xiangqi {
 
 using namespace mcts;
 
-using BoardStates = phmap::flat_hash_map<XiangQiGameMove, Pieces>;
+static const int32_t MIN_ROW = 1;
+static const int32_t MIN_COL = 1;
+
+static const int32_t MAX_ROW = 10;
+static const int32_t MAX_COL = 9;
+
+using BoardStates = HashMap<XiangQiGameMove, Pieces>;
+
+template <typename C, typename Function>
+C Filter(const C& container, Function&& f) {
+	C filtered(container);
+	filtered.erase(std::remove_if(filtered.begin(), filtered.end(), f), filtered.end());
+	return filtered;
+}
+
+inline std::ostream& operator<<(std::ostream& ostr, const BoardStates& board_states) {
+	for (auto row = MIN_ROW; row <= MAX_ROW; ++row) {
+		for (auto col = MIN_COL; col <= MAX_COL; ++col) {
+			XiangQiGameMove move(row, col);
+			auto itr = board_states.find(move);
+			if (itr != board_states.end()) {
+				std::ostringstream ss;
+				ss << (*itr).second.color << (*itr).second.type;
+				ostr << std::setw(2) << ss.str() << "|";
+			}
+			else {
+				ostr << std::setw(2) << "   " << "|";
+			}
+		}
+		ostr << "\n";
+	}
+	return ostr;
+}
+
+
+static const std::vector<Pieces>& GetRedPieces() {
+	static const std::vector<Pieces> pieces{
+		{ Colors::COLOR_RED, PiecesType::PIECE_CHE1,   {1, 1} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_CHE2,   {1, 9} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_PAO1,   {3, 2} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_PAO2,   {3, 8} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_MA1,    {1, 2} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_MA2,    {1, 8} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_XIANG1, {1, 3} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_XIANG2, {1, 7} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_SHI1,   {1, 4} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_SHI2,   {1, 6} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_BING1,  {4, 1} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_BING2,  {4, 3} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_BING3,  {4, 5} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_BING4,  {4, 7} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_BING5,  {4, 9} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_JIANG,  {1, 5} },
+	};
+	return pieces;
+}
+
+static const std::vector<Pieces>& GetBlackPieces() {
+	static const std::vector<Pieces> pieces{
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_CHE1,   {10, 1} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_CHE2,   {10, 9} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_PAO1,   {8,  2} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_PAO2,   {8,  8} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_MA1,    {10, 2} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_MA2,    {10, 8} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_XIANG1, {10, 3} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_XIANG2, {10, 7} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_SHI1,   {10, 4} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_SHI2,   {10, 6} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_BING1,  {7,  1} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_BING2,  {7,  3} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_BING3,  {7,  5} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_BING4,  {7,  7} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_BING5,  {7,  9} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_JIANG,  {10, 5} },
+	};
+	return pieces;
+}
+
+struct Rules {
+	static Colors OpponentColors(Colors color) {
+		return color == COLOR_BLACK ? COLOR_RED : COLOR_BLACK;
+	}
+
+	template <typename Function>
+	static std::optional<XiangQiGameMove> FindFirstOpponentOnCol(
+		Colors color, int8_t col, int8_t start_row, const BoardStates& board, Function&& f) {
+		for (; start_row >= MIN_ROW && start_row <= MAX_ROW; start_row = f(start_row)) {
+			XiangQiGameMove move(start_row, col);
+			auto itr = board.find(move);
+			if (itr != board.end()) {
+				if (color == (*itr).second.color) {
+					break;
+				}
+				else {
+					return move;
+				}
+			}
+		}
+		return std::nullopt;
+	}
+
+	template <typename Function>
+	static std::optional<XiangQiGameMove> FindFirstOpponentOnRow(
+		Colors color, int8_t row, int8_t start_col, const BoardStates& board, Function&& f) {
+		for (; start_col >= MIN_COL && start_col <= MAX_COL; start_col = f(start_col)) {
+			XiangQiGameMove move(row, start_col);
+			auto itr = board.find(move);
+			if (itr != board.end()) {
+				if (color == (*itr).second.color) {
+					break;
+				}
+				else {
+					return move;
+				}
+			}
+		}
+		return std::nullopt;
+	}
+
+	static std::vector<XiangQiGameMove> MovesOnSameLine(Colors color, int8_t row, int8_t col, const BoardStates& board);
+
+	static std::vector<XiangQiGameMove> GetCheLegalMove(Colors color, int8_t row, int8_t col, const BoardStates& board);
+
+	static std::vector<XiangQiGameMove> GetMaLegalMove(Colors color, int8_t row, int8_t col, const BoardStates& board);
+
+	static std::vector<XiangQiGameMove> GetPaoLegalMove(Colors color, int8_t row, int8_t col, const BoardStates& board);
+
+	static std::vector<XiangQiGameMove> GetShiLegalMove(Colors color, int8_t row, int8_t col, const BoardStates& board);
+
+	static std::vector<XiangQiGameMove> GetBingLegalMove(Colors color, int8_t row, int8_t col, const BoardStates& board);
+
+	static std::vector<XiangQiGameMove> GetXiangLegalMove(Colors color, int8_t row, int8_t col, const BoardStates& board);
+
+	static std::vector<XiangQiGameMove> GetJiangLegalMove(Colors color, int8_t row, int8_t col, const BoardStates& board);
+
+	static std::vector<XiangQiGameMove> GetPossibleMoves(const Pieces& pieces, const BoardStates& board);
+};
+
+class XiangQiGameAgent {
+public:
+	explicit XiangQiGameAgent(int8_t player_id)
+		: player_id_(player_id) {
+		if (player_id_ == 1) {
+			pieces_ = GetRedPieces();
+		}
+		else {
+			pieces_ = GetBlackPieces();
+		}
+	}
+
+	void Initial(BoardStates& board_states) {
+		for (auto pieces : pieces_) {
+			board_states.insert(std::make_pair(pieces.pos, pieces));
+		}
+	}
+
+	Colors GetColor() const {
+		return player_id_ != 1 ? COLOR_BLACK : COLOR_RED;
+	}
+
+	const HashSet<Pieces>& GetLegalMoves() const {
+		return legal_moves_;
+	}
+
+	bool IsLegalMove(const Pieces& move) const {
+		return legal_moves_.find(move) != legal_moves_.end();
+	}
+
+	Pieces GetRandomMove() const {
+		assert(!legal_moves_.empty());
+		auto itr = std::next(std::begin(legal_moves_),
+			RNG::Get()(0, int32_t(legal_moves_.size() - 1)));
+		return *itr;
+	}
+
+	void SetPiece(const Pieces& pieces) {
+		assert(IsLegalMove(pieces));
+		auto itr = std::find_if(pieces_.begin(), pieces_.end(),
+			[pieces](const Pieces& other) {
+				return pieces.type == other.type;
+			});
+		(*itr).pos = pieces.pos;
+	}
+
+	void ClearBoardStates(BoardStates& board_states) {
+		std::cout << board_states;
+
+		for (auto pieces : pieces_) {
+			auto itr = board_states.find(pieces.pos);
+			if (itr == board_states.end()) {
+				continue;
+			}
+			assert(pieces.color == GetColor());
+			assert((*itr).second.color == GetColor());
+			board_states.erase(pieces.pos);
+		}
+	}
+
+	void RemovePieces(const Pieces& pieces, BoardStates& board_states) {
+		ClearBoardStates(board_states);
+		bool found = false;
+		auto remove_itr = std::remove_if(pieces_.begin(), pieces_.end(),
+			[pieces, &found](const Pieces& other) {
+				found = pieces.pos == other.pos;
+				return found;
+			});
+		if (found) {
+			pieces_.erase(remove_itr);
+		}
+		UpdateBoardState(board_states);
+	}
+
+	void ApplyMove(const Pieces& pieces, BoardStates& board_states) {
+		ClearBoardStates(board_states);
+		auto itr = board_states.find(pieces.pos);
+		if (itr != board_states.end()) {
+			assert((*itr).second.color != GetColor());
+		}
+		SetPiece(pieces);
+		UpdateBoardState(board_states);
+	}
+
+	void UpdateBoardState(BoardStates& board_states) {		
+		legal_moves_.clear();
+		std::cout << board_states;
+		for (auto pieces : pieces_) {
+			board_states.insert(std::make_pair(pieces.pos, pieces));
+		}
+		std::cout << board_states;
+		CalcLegalMoves(board_states);
+	}
+
+	void CalcLegalMoves(BoardStates& board_states) {
+		for (auto pieces : pieces_) {
+			auto moves = Rules::GetPossibleMoves(pieces, board_states);
+#ifdef _DEBUG
+			if (!moves.empty()) {
+				std::cout << pieces.color << " " << pieces.type << " max move: " << moves.size() << "\n";
+				DebugMoves(moves, pieces.type, board_states);
+			}
+#endif
+			for (auto move : moves) {
+				assert(move.column <= MAX_COL);
+				assert(move.row <= MAX_ROW);
+				assert(pieces.color == GetColor());
+				legal_moves_.emplace(pieces.color, pieces.type, move);
+			}
+		}
+	}
+
+private:
+	void DebugMoves(const std::vector<XiangQiGameMove>& moves, PiecesType type, const BoardStates& board_states) const {
+		if (type != PIECE_PAO1 && type != PIECE_PAO2) {
+			return;
+		}
+		for (auto row = MIN_ROW; row <= MAX_ROW; ++row) {
+			for (auto col = MIN_COL; col <= MAX_COL; ++col) {
+				XiangQiGameMove move(row, col);
+				if (std::find(moves.begin(), moves.end(), move) != moves.end()) {
+					std::cout << std::setw(2) << type << "|";
+				}
+				else {
+					auto itr = board_states.find(move);
+					if (itr != board_states.end()) {
+						std::cout << std::setw(2) << (*itr).second.type << "|";
+					}
+					else {
+						std::cout << std::setw(2) << " " << "|";
+					}
+				}
+			}
+			std::cout << "\n";
+		}
+		std::cout << "\n";
+	}
+
+	int8_t player_id_;	
+	std::vector<Pieces> pieces_;
+	HashSet<Pieces> legal_moves_;
+	BoardStates board_states_;
+};
 
 class XiangQiGameState {
 public:
-	static const int32_t MIN_ROW = 1;
-	static const int32_t MIN_COL = 1;
-
-	static const int32_t MAX_ROW = 10;
-	static const int32_t MAX_COL = 9;
-
 	static const int8_t PLAYER1 = 'B';
 	static const int8_t PLAYER2 = 'R';
 	static const int8_t EMPTY = ' ';
@@ -31,39 +309,57 @@ public:
 	XiangQiGameState()
 		: winner_exists_(false)
 		, is_terminal_(false)
-		, player_id_(1) {
-		pieces_ = GetRedPieces();
-		opp_pieces_ = GetBlackPieces();
-		for (auto pieces : pieces_) {
-			state_.insert(std::make_pair(pieces.pos, pieces));
-		}
-		for (auto pieces : opp_pieces_) {
-			state_.insert(std::make_pair(pieces.pos, pieces));
-		}
+		, player_id_(1)
+		, agent_(player_id_)
+		, opp_agent_(player_id_ == 1 ? 0 : 1) {
+		agent_.Initial(board_states_);
+		opp_agent_.Initial(board_states_);
+		agent_.CalcLegalMoves(board_states_);
+		opp_agent_.CalcLegalMoves(board_states_);
 	}
 
-	void ApplyMove(const XiangQiGameMove& move) {
+	Colors GetColor() const {
+		return player_id_ != 1 ? COLOR_BLACK : COLOR_RED;
+	}
+
+	void ApplyMove(const Pieces& pieces) {
+		auto is_capture = false;
+
+		auto itr = board_states_.find(pieces.pos);
+		if (itr != board_states_.end()) {
+			if ((*itr).second.color != GetColor()) {
+				is_capture = true;
+			}
+		}
+
+		if (is_capture) {
+			opp_agent_.RemovePieces(pieces, board_states_);
+			agent_.ApplyMove(pieces, board_states_);
+		} else {
+			GetAgent().ApplyMove(pieces, board_states_);
+		}
+		std::cout << pieces.ToString() << "\n" << *this << "\n";
+		player_id_ = ((player_id_ == 1) ? 2 : 1);
 	}
 
 	double Evaluate() const noexcept {
 		return 0.0;
-	}
-
-	XiangQiGameMove GetRandomMove() const {
-		return XiangQiGameMove();
-	}
+	}	
 
 	int8_t GetPlayerID() const noexcept {
 		return player_id_;
 	}
 
-	bool IsLegalMove(const XiangQiGameMove& move) const {
-		return false;
+	Pieces GetRandomMove() const {
+		return GetAgent().GetRandomMove();
 	}
 
-	HashSet<XiangQiGameMove> GetLegalMoves() const noexcept {
-		HashSet<XiangQiGameMove> legal_moves;
-		return legal_moves;
+	bool IsLegalMove(const Pieces& pieces) const {
+		return GetAgent().IsLegalMove(pieces);
+	}
+
+	const HashSet<Pieces> & GetLegalMoves() const {
+		return GetAgent().GetLegalMoves();
 	}
 
 	std::string ToString() const {
@@ -81,152 +377,37 @@ public:
 	bool IsTerminal() const {
 		return is_terminal_;
 	}
+
 private:
-	static const HashSet<Pieces>& GetRedPieces() {
-		static const HashSet<Pieces> pieces {
-			{ PiecesType::PIECE_CHE,   {1, 1} },
-			{ PiecesType::PIECE_CHE,   {1, 9} },
-			{ PiecesType::PIECE_PAO,   {3, 2} },
-			{ PiecesType::PIECE_PAO,   {3, 8} },
-			{ PiecesType::PIECE_MA,    {1, 2} },
-			{ PiecesType::PIECE_MA,    {1, 8} },
-			{ PiecesType::PIECE_XIANG, {1, 3} },
-			{ PiecesType::PIECE_XIANG, {1, 7} },
-			{ PiecesType::PIECE_SHI,   {1, 4} },
-			{ PiecesType::PIECE_SHI,   {1, 6} },
-			{ PiecesType::PIECE_BING,  {4, 1} },
-			{ PiecesType::PIECE_BING,  {4, 3} },
-			{ PiecesType::PIECE_BING,  {4, 5} },
-			{ PiecesType::PIECE_BING,  {4, 7} },
-			{ PiecesType::PIECE_BING,  {4, 9} },
-			{ PiecesType::PIECE_JIANG, {1, 5} },
-		};
-		return pieces;
-	}
-
-	static const HashSet<Pieces>& GetBlackPieces() {
-		static const HashSet<Pieces> pieces{
-			{ PiecesType::PIECE_CHE,   {10, 1} },
-			{ PiecesType::PIECE_CHE,   {10, 9} },
-			{ PiecesType::PIECE_PAO,   {8,  2} },
-			{ PiecesType::PIECE_PAO,   {8,  8} },
-			{ PiecesType::PIECE_MA,    {10, 2} },
-			{ PiecesType::PIECE_MA,    {10, 8} },
-			{ PiecesType::PIECE_XIANG, {10, 3} },
-			{ PiecesType::PIECE_XIANG, {10, 7} },
-			{ PiecesType::PIECE_SHI,   {10, 4} },
-			{ PiecesType::PIECE_SHI,   {7,  6} },
-			{ PiecesType::PIECE_BING,  {7,  1} },
-			{ PiecesType::PIECE_BING,  {7,  3} },
-			{ PiecesType::PIECE_BING,  {7,  5} },
-			{ PiecesType::PIECE_BING,  {7,  7} },
-			{ PiecesType::PIECE_BING,  {7,  9} },
-			{ PiecesType::PIECE_JIANG, {10, 5} },
-		};
-		return pieces;
-	}
-
-	static std::vector<XiangQiGameMove> MovesOnSameLine(int32_t row, int32_t col, const BoardStates &board) {
-		std::vector<XiangQiGameMove> moves;
-		
-		for (auto i = row; i < MAX_ROW; ++i) {
-			XiangQiGameMove move(i, col);
-			if (board.find(move) != board.end()) {
-				moves.push_back(move);
-				break;
-			}
-			moves.push_back(move);
+	XiangQiGameAgent& GetAgent() {
+		if (player_id_ == 1) {
+			return agent_;
 		}
-		
-		for (auto i = row; i >= MIN_ROW; --i) {
-			XiangQiGameMove move(i, col);
-			if (board.find(move) != board.end()) {
-				moves.push_back(move);
-				break;
-			}
-			moves.push_back(move);
-		}
-		
-		for (auto i = col; i < MAX_COL; ++i) {
-			XiangQiGameMove move(row, i);
-			if (board.find(move) != board.end()) {
-				moves.push_back(move);
-				break;
-			}
-			moves.push_back(move);
-		}
-
-		for (auto i = col; i >= MIN_COL; --i) {
-			XiangQiGameMove move(row, i);
-			if (board.find(move) != board.end()) {
-				moves.push_back(move);
-				break;
-			}				
-			moves.push_back(move);
-		}
-		
-		return moves;
-	}
-
-	std::vector<XiangQiGameMove> GetCheLegalMove(int32_t row, int32_t col, const BoardStates& board) const {
-		return MovesOnSameLine(row, col, board);
-	}
-
-	std::vector<XiangQiGameMove> GetMaLegalMove(int32_t row, int32_t col, const BoardStates& board) const {
-		std::vector<XiangQiGameMove> moves;
-		if (board.find(XiangQiGameMove(row + 1, col)) == board.end()) {
-			moves.emplace_back(row + 2, col + 1);
-			moves.emplace_back(row + 2, col - 1);
-		}
-		if (board.find(XiangQiGameMove(row - 1, col)) == board.end()) {
-			moves.emplace_back(row - 2, col + 1);
-			moves.emplace_back(row - 2, col - 1);
-		}
-		if (board.find(XiangQiGameMove(row, col + 1)) == board.end()) {
-			moves.emplace_back(row + 1, col + 2);
-			moves.emplace_back(row - 1, col + 2);
-		}
-		if (board.find(XiangQiGameMove(row, col - 1)) == board.end()) {
-			moves.emplace_back(row + 1, col - 2);
-			moves.emplace_back(row + 1, col - 2);
-		}
-		return moves;
-	}
-
-	std::vector<XiangQiGameMove> GetPaoLegalMove(int32_t row, int32_t col, const BoardStates& board) const {
-		std::vector<XiangQiGameMove> moves;
-		return moves;
-	}
-
-	template <typename Function>
-	void FindFirstOpponentOnRow(int32_t row, int32_t start_col, const XiangQiGameState& state, Function &&f) {
-		while (start_col >= 0; start_col < MAX_COL) {
-			XiangQiGameMove move(row, start_col);
-			if (state.find(move) == state.end()) {
-
-			}
+		else {
+			return opp_agent_;
 		}
 	}
 
-	friend std::ostream& operator<<(std::ostream& ostr, const XiangQiGameState& state) {
-		for (auto row = MIN_ROW; row <= MAX_ROW; ++row) {
-			for (auto col = MIN_COL; col <= MAX_COL; ++col) {
-				XiangQiGameMove move(col, row);
-				auto itr = state.state_.find(move);
-				assert(itr != state.state_.end());
-				ostr << (*itr).second.type << "|";
-			}
-			ostr << "\n";
-		}		
+	const XiangQiGameAgent& GetAgent() const {
+		if (player_id_ == 1) {
+			return agent_;
+		}
+		else {
+			return opp_agent_;
+		}
+	}
+
+	friend std::ostream& operator<<(std::ostream& ostr, const XiangQiGameState& game_state) {
+		ostr << game_state.board_states_;
 		return ostr;
 	}
 
 	bool winner_exists_;
 	bool is_terminal_;
-	int8_t player_id_;	
-	BoardStates state_;
-	HashSet<Pieces> pieces_;
-	HashSet<Pieces> opp_pieces_;
+	int8_t player_id_;
+	BoardStates board_states_;
+	XiangQiGameAgent agent_;
+	XiangQiGameAgent opp_agent_;
 };
 
 }

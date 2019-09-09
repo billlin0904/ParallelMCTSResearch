@@ -2,6 +2,7 @@
 
 #include <iostream>
 
+#include "games/xiangqi/pieces.h"
 #include "games/xiangqi/gamemove.h"
 #include "games/xiangqi/gamestate.h"
 
@@ -16,7 +17,7 @@ using namespace websocket;
 using namespace mcts;
 
 template <typename State, typename Move>
-std::future<void> Simulation() {
+boost::future<void> Simulation() {
 	std::map<int8_t, size_t> stats;
 
 	while (true) {
@@ -34,14 +35,16 @@ std::future<void> Simulation() {
 
 		while (!game.IsTerminal()) {
 			if (game.GetPlayerID() == 2) {
-				auto move = await ai2.ParallelSearchAsync();
+				//auto move = await ai2.ParallelSearchAsync();
+				auto move = await ai2.SearchAsync();
 				assert(game.IsLegalMove(move));
 				std::cout << "AI2 turn! WinRate:" << int32_t(ai2.GetCurrentNode()->GetWinRate() * 100) << "%\n";
 				game.ApplyMove(move);
 				ai1.SetOpponentMove(move);
 			}
 			else {
-				auto move = await ai1.ParallelSearchAsync();
+				//auto move = await ai1.ParallelSearchAsync();
+				auto move = await ai1.SearchAsync();
 				assert(game.IsLegalMove(move));
 				std::cout << "AI1 turn!  WinRate:" << int32_t(ai1.GetCurrentNode()->GetWinRate() * 100) << "%\n";
 				game.ApplyMove(move);
@@ -110,6 +113,6 @@ int main() {
 	//using namespace tictactoe;
 	//Simulation<TicTacToeGameState, TicTacToeGameMove>().get();
 	using namespace xiangqi;
-	Simulation<XiangQiGameState, XiangQiGameMove>().get();
+	Simulation<XiangQiGameState, Pieces>().get();
 #endif
 }

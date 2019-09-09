@@ -5,55 +5,50 @@
 #include <cstdint>
 #include <sstream>
 
+#include "piecestype.h"
 #include "gamemove.h"
 
 namespace xiangqi {
 
-enum PiecesType {
-	PIECE_NONE = 0,
-	// 將軍
-	PIECE_JIANG = 1,
-	// 車(Ju)
-	PIECE_CHE,
-	// 砲
-	PIECE_PAO,
-	// 馬
-	PIECE_MA,
-	// 兵
-	PIECE_BING,
-	// 士
-	PIECE_SHI,
-	// 相
-	PIECE_XIANG,
-};
+inline std::ostream& operator<<(std::ostream& lhs, const Colors& rhs) noexcept {
+	if (rhs == COLOR_BLACK) {
+		lhs << "B";
+	}
+	else {
+		lhs << "R";
+	}
+	return lhs;
+}
 
 inline std::ostream& operator<<(std::ostream& lhs, const PiecesType& rhs) noexcept {
-	static const char * pieces_types_str[] = {
-		"N",
-		"J",
-		"C",
-		"P",
-		"M",
-		"B",
-		"S",
-		"X"
+	static const std::string pieces_types_str[] = {
+		"N0",
+		"J0",
+		"C1", "C2",
+		"P1", "P2",
+		"M1", "M2",
+		"B1", "B2", "B3", "B4", "B5",
+		"S1", "S2",
+		"X1", "X2"
 	};
 	lhs << pieces_types_str[rhs];
 	return lhs;
 }
 
 struct Pieces {
-	Pieces(PiecesType type = PiecesType::PIECE_NONE, XiangQiGameMove pos = XiangQiGameMove())
-		: type(type)
+	Pieces(Colors color = COLOR_NONE, PiecesType type = PiecesType::PIECE_NONE, XiangQiGameMove pos = XiangQiGameMove())
+		: color(color)
+		, type(type)
 		, pos(pos) {
 	}
 
+	Colors color;
 	PiecesType type;
 	XiangQiGameMove pos;
 
 	std::string ToString() const {
 		std::ostringstream ostr;
-		ostr << type << "=>" << pos.ToString();
+		ostr << color << ":" << type << "=>" << pos.ToString();
 		return ostr.str();
 	}
 
@@ -61,7 +56,7 @@ struct Pieces {
 };
 
 inline bool operator==(const Pieces& lhs, const Pieces& rhs) noexcept {
-	return lhs.type == rhs.type && lhs.pos == rhs.pos;
+	return lhs.color == rhs.color && lhs.type == rhs.type && lhs.pos == rhs.pos;
 }
 
 }
@@ -71,7 +66,7 @@ namespace std {
 	class hash<xiangqi::Pieces> {
 	public:
 		size_t operator()(const xiangqi::Pieces& pieces) const {
-			return pieces.type ^ pieces.pos.row ^ pieces.pos.column;
+			return pieces.color ^ pieces.type ^ pieces.pos.row ^ pieces.pos.column;
 		}
 	};
 }

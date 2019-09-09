@@ -165,6 +165,7 @@
     </QtMoc>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="games\xiangqi\gamestate.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="rng.cpp" />
     <ClCompile Include="websocket\logger.cpp" />
@@ -181,9 +182,10 @@
     <ClInclude Include="games\gomoku\gamestate.h" />
     <ClInclude Include="games\tictactoe\gamemove.h" />
     <ClInclude Include="games\tictactoe\gamestate.h" />
+    <ClInclude Include="games\xiangqi\gamemove.h" />
+    <ClInclude Include="games\xiangqi\gamestate.h" />
     <ClInclude Include="games\xiangqi\pieces.h" />
-    <ClInclude Include="games\xiang_qi\gamemove.h" />
-    <ClInclude Include="games\xiang_qi\gamestate.h" />
+    <ClInclude Include="games\xiangqi\piecestype.h" />
     <ClInclude Include="mcts.h" />
     <ClInclude Include="node.h" />
     <ClInclude Include="rng.h" />
