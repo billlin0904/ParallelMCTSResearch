@@ -31,8 +31,6 @@ boost::future<void> Simulation() {
 		ai1.Initial(1000, 1000);
 		ai2.Initial(1000, 1000);
 #endif
-		std::cout << game;
-
 		while (!game.IsTerminal()) {
 			if (game.GetPlayerID() == 2) {
 				//auto move = await ai2.ParallelSearchAsync();

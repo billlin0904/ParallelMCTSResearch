@@ -2,8 +2,92 @@
 
 namespace xiangqi {
 
+const std::vector<Pieces>& GetRedPieces() {
+	static const std::vector<Pieces> pieces{
+		{ Colors::COLOR_RED, PiecesType::PIECE_CHE1,   {1, 1} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_CHE2,   {1, 9} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_PAO1,   {3, 2} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_PAO2,   {3, 8} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_MA1,    {1, 2} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_MA2,    {1, 8} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_XIANG1, {1, 3} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_XIANG2, {1, 7} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_SHI1,   {1, 4} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_SHI2,   {1, 6} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_BING1,  {4, 1} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_BING2,  {4, 3} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_BING3,  {4, 5} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_BING4,  {4, 7} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_BING5,  {4, 9} },
+		{ Colors::COLOR_RED, PiecesType::PIECE_JIANG,  {1, 5} },
+	};
+	return pieces;
+}
+
+ const std::vector<Pieces>& GetBlackPieces() {
+	static const std::vector<Pieces> pieces{
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_CHE1,   {10, 1} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_CHE2,   {10, 9} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_PAO1,   {8,  2} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_PAO2,   {8,  8} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_MA1,    {10, 2} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_MA2,    {10, 8} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_XIANG1, {10, 3} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_XIANG2, {10, 7} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_SHI1,   {10, 4} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_SHI2,   {10, 6} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_BING1,  {7,  1} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_BING2,  {7,  3} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_BING3,  {7,  5} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_BING4,  {7,  7} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_BING5,  {7,  9} },
+		{ Colors::COLOR_BLACK, PiecesType::PIECE_JIANG,  {10, 5} },
+	};
+	return pieces;
+}
+
+template <typename Function>
+static std::optional<XiangQiGameMove> FindFirstOpponentOnCol(
+	Colors color, int8_t col, int8_t start_row, const BoardStates& board, Function&& f) {
+	for (; start_row >= MIN_ROW && start_row <= MAX_ROW; start_row = f(start_row)) {
+		XiangQiGameMove move(start_row, col);
+		auto itr = board.find(move);
+		if (itr != board.end()) {
+			if (color == (*itr).second.color) {
+				break;
+			}
+			else {
+				return move;
+			}
+		}
+	}
+	return std::nullopt;
+}
+
+template <typename Function>
+static std::optional<XiangQiGameMove> FindFirstOpponentOnRow(
+	Colors color, int8_t row, int8_t start_col, const BoardStates& board, Function&& f) {
+	for (; start_col >= MIN_COL && start_col <= MAX_COL; start_col = f(start_col)) {
+		XiangQiGameMove move(row, start_col);
+		auto itr = board.find(move);
+		if (itr != board.end()) {
+			if (color == (*itr).second.color) {
+				break;
+			}
+			else {
+				return move;
+			}
+		}
+	}
+	return std::nullopt;
+}
+
 static bool IsBeyonRiver(Colors color, int8_t row, int8_t col) {
 	return color == COLOR_RED ? (row > 5) : (row <= 5);
+}
+
+static Colors GetOppColor(Colors color) {
+	return color == COLOR_RED ? COLOR_BLACK : COLOR_RED;
 }
 
 std::vector<XiangQiGameMove> Rules::MovesOnSameLine(Colors color, int8_t row, int8_t col, const BoardStates& board) {
@@ -140,19 +224,32 @@ std::vector<XiangQiGameMove> Rules::GetShiLegalMove(Colors color, int8_t row, in
 	}
 
 	if (color == COLOR_BLACK) {
-		return std::vector<XiangQiGameMove>{ { 9, 5 }};
+		return std::vector<XiangQiGameMove>{{ 9, 5 }};
 	}
 
-	return std::vector<XiangQiGameMove>{ { 2, 5 }};
+	return std::vector<XiangQiGameMove>{{ 2, 5 }};
 }
 
 std::vector<XiangQiGameMove> Rules::GetBingLegalMove(Colors color, int8_t row, int8_t col, const BoardStates& board) {
 	auto is_beyond_river = IsBeyonRiver(color, row, col);
-	auto moves = color == COLOR_RED ?
-		std::vector<XiangQiGameMove>{ { row + 1, col }} : std::vector<XiangQiGameMove>{ { row - 1, col } };
+	std::vector<XiangQiGameMove> moves;
+	if (color == COLOR_RED) {
+		if (row + 1 <= MAX_ROW) {
+			moves.emplace_back(row + 1, col);
+		}		
+	}
+	else {
+		if (row - 1 >= MIN_ROW) {
+			moves.emplace_back(row - 1, col);
+		}
+	}
 	if (is_beyond_river) {
-		moves.emplace_back(row, col - 1);
-		moves.emplace_back(row, col + 1);
+		if (col - 1 >= MIN_COL) {
+			moves.emplace_back(row, col - 1);
+		}
+		if (col + 1 <= MAX_COL) {
+			moves.emplace_back(row, col + 1);
+		}
 	}
 	return moves;
 }
@@ -191,6 +288,15 @@ std::vector<XiangQiGameMove> Rules::GetXiangLegalMove(Colors color, int8_t row, 
 
 std::vector<XiangQiGameMove> Rules::GetJiangLegalMove(Colors color, int8_t row, int8_t col, const BoardStates& board) {
 	std::vector<XiangQiGameMove> moves;
+
+	bool found_opp_jiang = false;
+	auto oppcolor = GetOppColor(color);
+	XiangQiGameMove opp_jiang_pos(row, col);
+	auto itr = board.find(opp_jiang_pos);
+	if ((*itr).second.type == PIECE_JIANG) {
+		found_opp_jiang = true;
+	}
+
 	for (auto c = 4; c <= 6; ++c) {
 		XiangQiGameMove move(row, c);
 		auto itr = board.find(move);
@@ -218,7 +324,7 @@ std::vector<XiangQiGameMove> Rules::GetJiangLegalMove(Colors color, int8_t row, 
 std::vector<XiangQiGameMove> Rules::GetPossibleMoves(const Pieces& pieces, const BoardStates& board) {
 	typedef std::vector<XiangQiGameMove>(*GetLegalMoveCallback)(
 		Colors color, int8_t row, int8_t col, const BoardStates & board);
-	static const GetLegalMoveCallback sCallback[] = {
+	static const GetLegalMoveCallback const sCallback[] = {
 		{ nullptr },
 		{ &GetJiangLegalMove },
 		{ &GetCheLegalMove },
