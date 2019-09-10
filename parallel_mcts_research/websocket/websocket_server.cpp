@@ -53,7 +53,7 @@ void Listener::Boardcast(const std::string& messag) {
     }
 }
 
-void Listener::BoardcastExcepts(const std::string& message, const phmap::flat_hash_set<int32_t>& excepts) {
+void Listener::BoardcastExcepts(const std::string& message, const phmap::flat_hash_set<SessionID>& excepts) {
 	std::lock_guard<std::mutex> guard{ mutex_ };
 	for (auto& sess : sessions_) {
 		if (excepts.find(sess.second->GetSessionID()) == excepts.end()) {

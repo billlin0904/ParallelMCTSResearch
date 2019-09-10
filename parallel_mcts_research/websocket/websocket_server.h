@@ -184,7 +184,7 @@ public:
 
     void BoardcastExcept(const std::string& message, SessionID except_session_id);
 
-	void BoardcastExcepts(const std::string& message, const phmap::flat_hash_set<int32_t>& excepts);
+	void BoardcastExcepts(const std::string& message, const phmap::flat_hash_set<SessionID>& excepts);
 
     void SentTo(SessionID session_id, const std::string& message);
 

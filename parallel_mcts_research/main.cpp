@@ -36,7 +36,7 @@ boost::future<void> Simulation() {
 		while (!game.IsTerminal()) {
 			if (game.GetPlayerID() == 2) {
 				//auto move = await ai2.ParallelSearchAsync();
-				auto move = await ai2.SearchAsync();
+				auto move = ai2.Search();
 				assert(game.IsLegalMove(move));
 				std::cout << "AI2 turn! WinRate:" << int32_t(ai2.GetCurrentNode()->GetWinRate() * 100) << "%\n";
 				game.ApplyMove(move);
@@ -44,7 +44,7 @@ boost::future<void> Simulation() {
 			}
 			else {
 				//auto move = await ai1.ParallelSearchAsync();
-				auto move = await ai1.SearchAsync();
+				auto move = ai1.Search();
 				assert(game.IsLegalMove(move));
 				std::cout << "AI1 turn!  WinRate:" << int32_t(ai1.GetCurrentNode()->GetWinRate() * 100) << "%\n";
 				game.ApplyMove(move);

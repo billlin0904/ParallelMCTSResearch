@@ -35,6 +35,7 @@ enum PiecesType {
 	// ¬Û
 	PIECE_XIANG1,
 	PIECE_XIANG2,
+	_MAX_PIECE_TYPE_,
 };
 
 }

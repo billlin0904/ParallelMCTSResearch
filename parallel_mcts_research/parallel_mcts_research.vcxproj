@@ -119,7 +119,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>.\GeneratedFiles\$(ConfigurationName);.\GeneratedFiles;.;thirdparty\rapidjson\include;thirdparty\spdlog\include;thirdparty\parallel-hashmap;$(QTDIR)\mkspecs\win32-msvc;C:\local\boost_1_70_0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\GeneratedFiles\$(ConfigurationName);.\GeneratedFiles;.;thirdparty\rapidjson\include;thirdparty\spdlog\include;thirdparty\parallel-hashmap;$(QTDIR)\mkspecs\win32-msvc;C:\local\boost_1_70_0;../;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>-Zc:rvalueCast -Zc:inline -Zc:strictStrings -Zc:throwingNew -Zc:referenceBinding -Zc:__cplusplus -w34100 -w34189 -w44996 -w44456 -w44457 -w44458 /await %(AdditionalOptions)</AdditionalOptions>
       <AssemblerListingLocation>debug\</AssemblerListingLocation>
       <BrowseInformation>false</BrowseInformation>
@@ -161,7 +161,7 @@
       <PreprocessorDefinitions>_CONSOLE;UNICODE;_UNICODE;WIN32;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <QtMoc>
-      <IncludePath>.\GeneratedFiles\$(ConfigurationName);.\GeneratedFiles;.;thirdparty\rapidjson\include;thirdparty\spdlog\include;thirdparty\parallel-hashmap;$(QTDIR)\mkspecs\win32-msvc;C:\local\boost_1_70_0;%(AdditionalIncludeDirectories)</IncludePath>
+      <IncludePath>.\GeneratedFiles\$(ConfigurationName);.\GeneratedFiles;.;thirdparty\rapidjson\include;thirdparty\spdlog\include;thirdparty\parallel-hashmap;$(QTDIR)\mkspecs\win32-msvc;C:\local\boost_1_70_0;../;%(AdditionalIncludeDirectories)</IncludePath>
     </QtMoc>
   </ItemDefinitionGroup>
   <ItemGroup>

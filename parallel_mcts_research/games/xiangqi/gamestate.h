@@ -9,7 +9,9 @@
 #include <iomanip>
 #include <optional>
 
-#include "../mcts.h"
+#include <tweakme.h>
+#include <rng.h>
+
 #include "pieces.h"
 #include "gamemove.h"
 
@@ -48,6 +50,7 @@ inline std::ostream& operator<<(std::ostream& ostr, const BoardStates& board_sta
 		}
 		ostr << "\n";
 	}
+	ostr << "\n----------\n";
 	return ostr;
 }
 
@@ -199,12 +202,11 @@ public:
 			[pieces](const Pieces& other) {
 				return pieces.type == other.type;
 			});
+		assert(itr != pieces_.end());
 		(*itr).pos = pieces.pos;
 	}
 
 	void ClearBoardStates(BoardStates& board_states) {
-		std::cout << board_states;
-
 		for (auto pieces : pieces_) {
 			auto itr = board_states.find(pieces.pos);
 			if (itr == board_states.end()) {
@@ -218,35 +220,29 @@ public:
 
 	void RemovePieces(const Pieces& pieces, BoardStates& board_states) {
 		ClearBoardStates(board_states);
-		bool found = false;
-		auto remove_itr = std::remove_if(pieces_.begin(), pieces_.end(),
-			[pieces, &found](const Pieces& other) {
-				found = pieces.pos == other.pos;
-				return found;
+		auto itr = std::find_if(pieces_.begin(), pieces_.end(), [&pieces](const Pieces& other) {
+			return pieces.pos == other.pos;
 			});
-		if (found) {
-			pieces_.erase(remove_itr);
-		}
+		assert(itr != pieces_.end());
+		std::cout << pieces << " capture " << (*itr) << "\n";
+		pieces_.erase(std::remove_if(pieces_.begin(), pieces_.end(),
+			[pieces](const Pieces& other) {
+				return pieces.pos == other.pos;
+			}));
 		UpdateBoardState(board_states);
 	}
 
 	void ApplyMove(const Pieces& pieces, BoardStates& board_states) {
 		ClearBoardStates(board_states);
-		auto itr = board_states.find(pieces.pos);
-		if (itr != board_states.end()) {
-			assert((*itr).second.color != GetColor());
-		}
 		SetPiece(pieces);
 		UpdateBoardState(board_states);
 	}
 
 	void UpdateBoardState(BoardStates& board_states) {		
 		legal_moves_.clear();
-		std::cout << board_states;
 		for (auto pieces : pieces_) {
 			board_states.insert(std::make_pair(pieces.pos, pieces));
 		}
-		std::cout << board_states;
 		CalcLegalMoves(board_states);
 	}
 
@@ -254,10 +250,12 @@ public:
 		for (auto pieces : pieces_) {
 			auto moves = Rules::GetPossibleMoves(pieces, board_states);
 #ifdef _DEBUG
+			/*
 			if (!moves.empty()) {
 				std::cout << pieces.color << " " << pieces.type << " max move: " << moves.size() << "\n";
 				DebugMoves(moves, pieces.type, board_states);
 			}
+			*/
 #endif
 			for (auto move : moves) {
 				assert(move.column <= MAX_COL);
@@ -265,7 +263,7 @@ public:
 				assert(pieces.color == GetColor());
 				legal_moves_.emplace(pieces.color, pieces.type, move);
 			}
-		}
+		}		
 	}
 
 private:
@@ -291,7 +289,7 @@ private:
 			}
 			std::cout << "\n";
 		}
-		std::cout << "\n";
+		std::cout << "\n----------\n";
 	}
 
 	int8_t player_id_;	
@@ -333,12 +331,13 @@ public:
 		}
 
 		if (is_capture) {
-			opp_agent_.RemovePieces(pieces, board_states_);
-			agent_.ApplyMove(pieces, board_states_);
+			GetOppAgent().RemovePieces(pieces, board_states_);
+			GetAgent().ApplyMove(pieces, board_states_);
+			std::cout << *this << "\n";
 		} else {
 			GetAgent().ApplyMove(pieces, board_states_);
-		}
-		std::cout << pieces.ToString() << "\n" << *this << "\n";
+			std::cout << pieces << "\n" << *this << "\n";
+		}		
 		player_id_ = ((player_id_ == 1) ? 2 : 1);
 	}
 
@@ -379,6 +378,15 @@ public:
 	}
 
 private:
+	XiangQiGameAgent& GetOppAgent() {
+		if (player_id_ == 1) {
+			return opp_agent_;			
+		}
+		else {
+			return agent_;
+		}
+	}
+
 	XiangQiGameAgent& GetAgent() {
 		if (player_id_ == 1) {
 			return agent_;

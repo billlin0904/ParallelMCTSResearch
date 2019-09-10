@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <cassert>
 #include <cstdint>
 #include <sstream>
 
@@ -31,6 +32,7 @@ inline std::ostream& operator<<(std::ostream& lhs, const PiecesType& rhs) noexce
 		"S1", "S2",
 		"X1", "X2"
 	};
+	assert(rhs < _MAX_PIECE_TYPE_);
 	lhs << pieces_types_str[rhs];
 	return lhs;
 }
@@ -46,17 +48,17 @@ struct Pieces {
 	PiecesType type;
 	XiangQiGameMove pos;
 
-	std::string ToString() const {
-		std::ostringstream ostr;
-		ostr << color << ":" << type << "=>" << pos.ToString();
-		return ostr.str();
-	}
-
+	friend std::ostream& operator<<(std::ostream& ostr, const Pieces& pieces) noexcept;
 	friend bool operator==(const Pieces& lhs, const Pieces& rhs) noexcept;
 };
 
 inline bool operator==(const Pieces& lhs, const Pieces& rhs) noexcept {
 	return lhs.color == rhs.color && lhs.type == rhs.type && lhs.pos == rhs.pos;
+}
+
+inline std::ostream& operator<<(std::ostream& ostr, const Pieces& pieces) noexcept {
+	ostr << pieces.color << pieces.type << "(" << pieces.pos.ToString() << ")";
+	return ostr;
 }
 
 }

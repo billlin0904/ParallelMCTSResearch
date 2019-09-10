@@ -2,6 +2,10 @@
 
 namespace xiangqi {
 
+static bool IsBeyonRiver(Colors color, int8_t row, int8_t col) {
+	return color == COLOR_RED ? (row > 5) : (row <= 5);
+}
+
 std::vector<XiangQiGameMove> Rules::MovesOnSameLine(Colors color, int8_t row, int8_t col, const BoardStates& board) {
 	std::vector<XiangQiGameMove> moves;
 	for (auto i = row + 1; i <= MAX_ROW; ++i) {
@@ -143,7 +147,7 @@ std::vector<XiangQiGameMove> Rules::GetShiLegalMove(Colors color, int8_t row, in
 }
 
 std::vector<XiangQiGameMove> Rules::GetBingLegalMove(Colors color, int8_t row, int8_t col, const BoardStates& board) {
-	auto is_beyond_river = color == COLOR_RED ? (row > 5) : (row <= 5);
+	auto is_beyond_river = IsBeyonRiver(color, row, col);
 	auto moves = color == COLOR_RED ?
 		std::vector<XiangQiGameMove>{ { row + 1, col }} : std::vector<XiangQiGameMove>{ { row - 1, col } };
 	if (is_beyond_river) {
@@ -153,8 +157,13 @@ std::vector<XiangQiGameMove> Rules::GetBingLegalMove(Colors color, int8_t row, i
 	return moves;
 }
 
-std::vector<XiangQiGameMove> Rules::GetXiangLegalMove(Colors color, int8_t row, int8_t col, const BoardStates& board) {
+std::vector<XiangQiGameMove> Rules::GetXiangLegalMove(Colors color, int8_t row, int8_t col, const BoardStates& board) {	
 	std::vector<XiangQiGameMove> moves;
+
+	if (auto is_beyond_river = IsBeyonRiver(color, row, col)) {
+		return moves;
+	}
+
 	auto can_move_dowward = (color == COLOR_RED || row >= 8);
 	auto can_move_upward = (row <= 3 || color != COLOR_RED);
 	if (can_move_dowward && board.find(row + 1, col + 1) == board.end()) {
