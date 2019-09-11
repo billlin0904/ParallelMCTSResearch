@@ -76,6 +76,8 @@ struct Rules {
 	static std::vector<XiangQiGameMove> GetJiangLegalMove(Colors color, int8_t row, int8_t col, const BoardStates& board);
 
 	static std::vector<XiangQiGameMove> GetPossibleMoves(const Pieces& pieces, const BoardStates& board);
+
+	static bool IsCaptureOppJiang(const Pieces& pieces, const BoardStates& board);
 };
 
 class XiangQiGameAgent {
@@ -123,6 +125,8 @@ public:
 			});
 		assert(itr != pieces_.end());
 		(*itr).pos = pieces.pos;
+		(*itr).type = pieces.type;
+		(*itr).color = pieces.color;
 	}
 
 	void ClearBoardStates(BoardStates& board_states) {
@@ -165,19 +169,24 @@ public:
 	bool IsExistJiang() const {
 		return std::find_if(pieces_.cbegin(), pieces_.cend(), [](const Pieces &pieces) {
 			return pieces.type == PIECE_JIANG;
-			}) == pieces_.cend();
+			}) != pieces_.cend();
+	}
+
+	bool IsCaptureOppJiang(const BoardStates& board_states) const {
+		auto itr = std::find_if(pieces_.cbegin(), pieces_.cend(), [](const Pieces& pieces) {
+			return pieces.type == PIECE_JIANG;
+			});
+		return Rules::IsCaptureOppJiang((*itr), board_states);
 	}
 
 	void CalcLegalMoves(BoardStates& board_states) {
 		for (auto pieces : pieces_) {
 			auto moves = Rules::GetPossibleMoves(pieces, board_states);
 #ifdef _DEBUG
-			/*
 			if (!moves.empty()) {
 				std::cout << pieces.color << " " << pieces.type << " max move: " << moves.size() << "\n";
 				DebugMoves(moves, pieces.type, board_states);
 			}
-			*/
 #endif
 			for (auto move : moves) {
 				assert(move.column <= MAX_COL);
@@ -190,9 +199,9 @@ public:
 
 private:
 	void DebugMoves(const std::vector<XiangQiGameMove>& moves, PiecesType type, const BoardStates& board_states) const {
-		//if (type != PIECE_PAO1 && type != PIECE_PAO2) {
-		//	return;
-		//}
+		if (type != PIECE_JIANG) {
+			return;
+		}
 		for (auto row = MIN_ROW; row <= MAX_ROW; ++row) {
 			for (auto col = MIN_COL; col <= MAX_COL; ++col) {
 				XiangQiGameMove move(row, col);
@@ -249,19 +258,26 @@ public:
 		if (itr != board_states_.end()) {
 			if ((*itr).second.color != GetColor()) {
 				is_capture = true;
+				
 			}
 		}
 
 		if (is_capture) {
 			GetOppAgent().RemovePieces(pieces, board_states_);
 			GetAgent().ApplyMove(pieces, board_states_);
-			//std::cout << *this << "\n";			
-			winner_exists_ = GetOppAgent().IsExistJiang();
+			//std::cout << *this << "\n";
+			winner_exists_ = !GetOppAgent().IsExistJiang();
 			is_terminal_ = winner_exists_;
 		} else {
 			GetAgent().ApplyMove(pieces, board_states_);
+			winner_exists_ = GetAgent().IsCaptureOppJiang(board_states_);
+			is_terminal_ = winner_exists_;
 			//std::cout << pieces << "\n" << *this << "\n";
-		}		
+		}
+		if (!winner_exists_ || !is_terminal_) {
+			assert(GetAgent().IsExistJiang());
+			assert(GetOppAgent().IsExistJiang());
+		}
 		player_id_ = ((player_id_ == 1) ? 2 : 1);
 	}
 

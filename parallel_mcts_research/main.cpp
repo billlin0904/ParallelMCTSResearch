@@ -24,30 +24,36 @@ boost::future<void> Simulation() {
 		MCTS<State, Move> ai1;
 		MCTS<State, Move> ai2;
 		State game;
-//#ifdef _DEBUG
-		ai1.Initial(10, 10);
-		ai2.Initial(10, 10);
-//#else
-		//ai1.Initial(1000, 1000);
-		//ai2.Initial(1000, 1000);
-//#endif
+#ifdef _DEBUG
+		ai1.Initial(20, 20);
+		ai2.Initial(20, 20);
+#else
+		ai1.Initial(100, 100);
+		ai2.Initial(100, 100);
+#endif
 
 		std::cout << game;
 
 		while (!game.IsTerminal()) {
 			if (game.GetPlayerID() == 2) {
-				//auto move = await ai2.ParallelSearchAsync();
+#ifdef _DEBUG
 				auto move = ai2.Search();
+#else
+				auto move = await ai2.ParallelSearchAsync();				
+#endif
 				assert(game.IsLegalMove(move));
-				std::cout << "AI2 turn! WinRate:" << int32_t(ai2.GetCurrentNode()->GetWinRate() * 100) << "%\n";
+				std::cout << "AI2 turn! " << move << " WinRate:" << int32_t(ai2.GetCurrentNode()->GetWinRate() * 100) << "%\n";
 				game.ApplyMove(move);
 				ai1.SetOpponentMove(move);
 			}
 			else {
-				//auto move = await ai1.ParallelSearchAsync();
+#ifdef _DEBUG
 				auto move = ai1.Search();
+#else
+				auto move = await ai1.ParallelSearchAsync();
+#endif
 				assert(game.IsLegalMove(move));
-				std::cout << "AI1 turn!  WinRate:" << int32_t(ai1.GetCurrentNode()->GetWinRate() * 100) << "%\n";
+				std::cout << "AI1 turn! " << move << " WinRate:" << int32_t(ai1.GetCurrentNode()->GetWinRate() * 100) << "%\n";
 				game.ApplyMove(move);
 				ai2.SetOpponentMove(move);
 			}

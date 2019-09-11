@@ -3,8 +3,8 @@
 #pragma once
 
 #define USE_PPL 1
-#define USE_STD_UNORDERED_SET 0
-#define USE_STD_UNORDERED_MAP 0
+#define USE_STD_UNORDERED_SET 1
+#define USE_STD_UNORDERED_MAP 1
 
 #if USE_STD_UNORDERED_SET
 #include <unordered_set>
@@ -28,7 +28,7 @@ using HashSet = phmap::flat_hash_set<T>;
 
 #if USE_STD_UNORDERED_MAP
 template <typename Key, typename Value>
-using HashMap = std::unordered_set<Key, Value>;
+using HashMap = std::unordered_map<Key, Value>;
 #else
 template <typename Key, typename Value>
 using HashMap = phmap::flat_hash_map<Key, Value>;
