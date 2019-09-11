@@ -2,48 +2,18 @@
 
 namespace xiangqi {
 
-const std::vector<Pieces>& GetRedPieces() {
-	static const std::vector<Pieces> pieces{
-		{ Colors::COLOR_RED, PiecesType::PIECE_CHE1,   {1, 1} },
-		{ Colors::COLOR_RED, PiecesType::PIECE_CHE2,   {1, 9} },
-		{ Colors::COLOR_RED, PiecesType::PIECE_PAO1,   {3, 2} },
-		{ Colors::COLOR_RED, PiecesType::PIECE_PAO2,   {3, 8} },
-		{ Colors::COLOR_RED, PiecesType::PIECE_MA1,    {1, 2} },
-		{ Colors::COLOR_RED, PiecesType::PIECE_MA2,    {1, 8} },
-		{ Colors::COLOR_RED, PiecesType::PIECE_XIANG1, {1, 3} },
-		{ Colors::COLOR_RED, PiecesType::PIECE_XIANG2, {1, 7} },
-		{ Colors::COLOR_RED, PiecesType::PIECE_SHI1,   {1, 4} },
-		{ Colors::COLOR_RED, PiecesType::PIECE_SHI2,   {1, 6} },
-		{ Colors::COLOR_RED, PiecesType::PIECE_BING1,  {4, 1} },
-		{ Colors::COLOR_RED, PiecesType::PIECE_BING2,  {4, 3} },
-		{ Colors::COLOR_RED, PiecesType::PIECE_BING3,  {4, 5} },
-		{ Colors::COLOR_RED, PiecesType::PIECE_BING4,  {4, 7} },
-		{ Colors::COLOR_RED, PiecesType::PIECE_BING5,  {4, 9} },
-		{ Colors::COLOR_RED, PiecesType::PIECE_JIANG,  {1, 5} },
-	};
-	return pieces;
+static bool IsBeyonRiver(Colors color, int8_t row, int8_t col) noexcept {
+	return color == COLOR_RED ? (row > 5) : (row <= 5);
 }
 
- const std::vector<Pieces>& GetBlackPieces() {
-	static const std::vector<Pieces> pieces{
-		{ Colors::COLOR_BLACK, PiecesType::PIECE_CHE1,   {10, 1} },
-		{ Colors::COLOR_BLACK, PiecesType::PIECE_CHE2,   {10, 9} },
-		{ Colors::COLOR_BLACK, PiecesType::PIECE_PAO1,   {8,  2} },
-		{ Colors::COLOR_BLACK, PiecesType::PIECE_PAO2,   {8,  8} },
-		{ Colors::COLOR_BLACK, PiecesType::PIECE_MA1,    {10, 2} },
-		{ Colors::COLOR_BLACK, PiecesType::PIECE_MA2,    {10, 8} },
-		{ Colors::COLOR_BLACK, PiecesType::PIECE_XIANG1, {10, 3} },
-		{ Colors::COLOR_BLACK, PiecesType::PIECE_XIANG2, {10, 7} },
-		{ Colors::COLOR_BLACK, PiecesType::PIECE_SHI1,   {10, 4} },
-		{ Colors::COLOR_BLACK, PiecesType::PIECE_SHI2,   {10, 6} },
-		{ Colors::COLOR_BLACK, PiecesType::PIECE_BING1,  {7,  1} },
-		{ Colors::COLOR_BLACK, PiecesType::PIECE_BING2,  {7,  3} },
-		{ Colors::COLOR_BLACK, PiecesType::PIECE_BING3,  {7,  5} },
-		{ Colors::COLOR_BLACK, PiecesType::PIECE_BING4,  {7,  7} },
-		{ Colors::COLOR_BLACK, PiecesType::PIECE_BING5,  {7,  9} },
-		{ Colors::COLOR_BLACK, PiecesType::PIECE_JIANG,  {10, 5} },
-	};
-	return pieces;
+static Colors GetOppColor(Colors color) noexcept {
+	return color == COLOR_RED ? COLOR_BLACK : COLOR_RED;
+}
+
+static bool IsJiangLegalMove(int8_t row, int8_t column, const XiangQiGameMove& move) noexcept {
+	auto r = (move.row - row) * (move.row - row);
+	auto c = (move.column - column) * (move.column - column);
+	return r + c >= 2;
 }
 
 template <typename Function>
@@ -82,12 +52,71 @@ static std::optional<XiangQiGameMove> FindFirstOpponentOnRow(
 	return std::nullopt;
 }
 
-static bool IsBeyonRiver(Colors color, int8_t row, int8_t col) {
-	return color == COLOR_RED ? (row > 5) : (row <= 5);
+static int32_t GetRowPiecesCount(Colors color, int8_t row, int8_t col, const BoardStates& board) {
+	int32_t count = 0;
+	if (color == COLOR_BLACK) {
+		for (auto i = row - 1; i >= MIN_ROW; --i) {
+			XiangQiGameMove move(i, col);
+			auto itr = board.find(move);
+			if (itr != board.end()) {
+				++count;
+			}			
+		}
+	}
+	else {
+		for (auto i = row + 1; i <= MAX_ROW; ++i) {
+			XiangQiGameMove move(i, col);
+			auto itr = board.find(move);
+			if (itr != board.end()) {
+				++count;
+			}
+		}
+	}
+	return count;
 }
 
-static Colors GetOppColor(Colors color) {
-	return color == COLOR_RED ? COLOR_BLACK : COLOR_RED;
+const std::vector<Pieces>& Rules::GetRedPieces() {
+	static const std::vector<Pieces> pieces{
+		{ COLOR_RED, PIECE_CHE1,   {1, 1} },
+		{ COLOR_RED, PIECE_CHE2,   {1, 9} },
+		{ COLOR_RED, PIECE_PAO1,   {3, 2} },
+		{ COLOR_RED, PIECE_PAO2,   {3, 8} },
+		{ COLOR_RED, PIECE_MA1,    {1, 2} },
+		{ COLOR_RED, PIECE_MA2,    {1, 8} },
+		{ COLOR_RED, PIECE_XIANG1, {1, 3} },
+		{ COLOR_RED, PIECE_XIANG2, {1, 7} },
+		{ COLOR_RED, PIECE_SHI1,   {1, 4} },
+		{ COLOR_RED, PIECE_SHI2,   {1, 6} },
+		{ COLOR_RED, PIECE_BING1,  {4, 1} },
+		{ COLOR_RED, PIECE_BING2,  {4, 3} },
+		{ COLOR_RED, PIECE_BING3,  {4, 5} },
+		{ COLOR_RED, PIECE_BING4,  {4, 7} },
+		{ COLOR_RED, PIECE_BING5,  {4, 9} },
+		{ COLOR_RED, PIECE_JIANG,  {1, 5} },
+	};
+	return pieces;
+}
+
+const std::vector<Pieces>& Rules::GetBlackPieces() {
+	static const std::vector<Pieces> pieces{
+		{ COLOR_BLACK, PIECE_CHE1,   {10, 1} },
+		{ COLOR_BLACK, PIECE_CHE2,   {10, 9} },
+		{ COLOR_BLACK, PIECE_PAO1,   {8,  2} },
+		{ COLOR_BLACK, PIECE_PAO2,   {8,  8} },
+		{ COLOR_BLACK, PIECE_MA1,    {10, 2} },
+		{ COLOR_BLACK, PIECE_MA2,    {10, 8} },
+		{ COLOR_BLACK, PIECE_XIANG1, {10, 3} },
+		{ COLOR_BLACK, PIECE_XIANG2, {10, 7} },
+		{ COLOR_BLACK, PIECE_SHI1,   {10, 4} },
+		{ COLOR_BLACK, PIECE_SHI2,   {10, 6} },
+		{ COLOR_BLACK, PIECE_BING1,  {7,  1} },
+		{ COLOR_BLACK, PIECE_BING2,  {7,  3} },
+		{ COLOR_BLACK, PIECE_BING3,  {7,  5} },
+		{ COLOR_BLACK, PIECE_BING4,  {7,  7} },
+		{ COLOR_BLACK, PIECE_BING5,  {7,  9} },
+		{ COLOR_BLACK, PIECE_JIANG,  {10, 5} },
+	};
+	return pieces;
 }
 
 std::vector<XiangQiGameMove> Rules::MovesOnSameLine(Colors color, int8_t row, int8_t col, const BoardStates& board) {
@@ -168,8 +197,8 @@ std::vector<XiangQiGameMove> Rules::GetMaLegalMove(Colors color, int8_t row, int
 
 std::vector<XiangQiGameMove> Rules::GetPaoLegalMove(Colors color, int8_t row, int8_t col, const BoardStates& board) {
 	std::vector<XiangQiGameMove> moves;
-	const auto inc = [](int32_t x) { return x + 1; };
-	const auto dec = [](int32_t x) { return x - 1; };
+	const auto inc = [](int32_t x) noexcept { return x + 1; };
+	const auto dec = [](int32_t x) noexcept { return x - 1; };
 	for (auto i = row + 1; i <= MAX_ROW; ++i) {
 		XiangQiGameMove move(i, col);
 		if (board.find(move) != board.end()) {
@@ -180,6 +209,7 @@ std::vector<XiangQiGameMove> Rules::GetPaoLegalMove(Colors color, int8_t row, in
 		}
 		moves.push_back(move);
 	}
+	
 	for (auto i = row - 1; i >= MIN_ROW; --i) {
 		XiangQiGameMove move(i, col);
 		if (board.find(move) != board.end()) {
@@ -256,31 +286,34 @@ std::vector<XiangQiGameMove> Rules::GetBingLegalMove(Colors color, int8_t row, i
 
 std::vector<XiangQiGameMove> Rules::GetXiangLegalMove(Colors color, int8_t row, int8_t col, const BoardStates& board) {	
 	std::vector<XiangQiGameMove> moves;
-
-	if (auto is_beyond_river = IsBeyonRiver(color, row, col)) {
-		return moves;
-	}
-
 	auto can_move_dowward = (color == COLOR_RED || row >= 8);
 	auto can_move_upward = (row <= 3 || color != COLOR_RED);
 	if (can_move_dowward && board.find(row + 1, col + 1) == board.end()) {
 		if (row + 2 <= MAX_ROW && col + 2 <= MAX_COL) {
-			moves.emplace_back(row + 2, col + 2);
+			if (!IsBeyonRiver(color, row + 2, col + 2)) {
+				moves.emplace_back(row + 2, col + 2);
+			}
 		}
 	}
 	if (can_move_dowward && board.find(row + 1, col - 1) == board.end()) {
 		if (row + 2 <= MAX_ROW && col - 2 >= MIN_COL) {
-			moves.emplace_back(row + 2, col - 2);
+			if (!IsBeyonRiver(color, row + 2, col - 2)) {
+				moves.emplace_back(row + 2, col - 2);
+			}			
 		}
 	}
 	if (can_move_dowward && board.find(row - 1, col + 1) == board.end()) {
 		if (row - 2 >= MIN_ROW && col + 2 <= MAX_COL) {
-			moves.emplace_back(row - 2, col + 2);
+			if (!IsBeyonRiver(color, row - 2, col + 2)) {
+				moves.emplace_back(row - 2, col + 2);
+			}
 		}
 	}
 	if (can_move_dowward && board.find(row - 1, col - 1) == board.end()) {
 		if (row - 2 >= MIN_ROW && col + 2 <= MAX_COL) {
-			moves.emplace_back(row - 2, col + 2);
+			if (!IsBeyonRiver(color, row - 2, col + 2)) {
+				moves.emplace_back(row - 2, col + 2);
+			}
 		}
 	}
 	return moves;
@@ -289,36 +322,51 @@ std::vector<XiangQiGameMove> Rules::GetXiangLegalMove(Colors color, int8_t row, 
 std::vector<XiangQiGameMove> Rules::GetJiangLegalMove(Colors color, int8_t row, int8_t col, const BoardStates& board) {
 	std::vector<XiangQiGameMove> moves;
 
-	bool found_opp_jiang = false;
-	auto oppcolor = GetOppColor(color);
-	XiangQiGameMove opp_jiang_pos(row, col);
-	auto itr = board.find(opp_jiang_pos);
-	if ((*itr).second.type == PIECE_JIANG) {
-		found_opp_jiang = true;
-	}
+	if (GetRowPiecesCount(color, row, col, board) == 0) {
+		if (color == COLOR_BLACK) {
+			for (auto i = row - 1; i >= MIN_ROW; --i) {
+				XiangQiGameMove move(i, col);
+				auto itr = board.find(move);
+				if (itr != board.end() && (*itr).second.color != GetOppColor((*itr).second.color)) {
+					return moves;
+				}
+			}
+		}
+		else {
+			for (auto i = row + 1; i <= MAX_ROW; ++i) {
+				XiangQiGameMove move(i, col);
+				auto itr = board.find(move);
+				if (itr != board.end() && (*itr).second.color != GetOppColor((*itr).second.color)) {
+					return moves;
+				}
+			}
+		}
+	}	
 
 	for (auto c = 4; c <= 6; ++c) {
 		XiangQiGameMove move(row, c);
 		auto itr = board.find(move);
 		if (itr != board.end() && (*itr).second.color != color) {
-			moves.emplace_back(row, c);
+			if (IsJiangLegalMove(row, col, move)) {
+				moves.emplace_back(row, c);
+			}			
 		}
 	}
 	if (row < 5) {
 		for (auto r = 1; r <= 3; ++r) {
-			moves.emplace_back(r, col);
+			if (IsJiangLegalMove(row, col, XiangQiGameMove(r, col))) {
+				moves.emplace_back(r, col);
+			}
 		}
 	}
 	else {
 		for (auto r = 8; r <= 10; ++r) {
-			moves.emplace_back(r, col);
+			if (IsJiangLegalMove(row, col, XiangQiGameMove(r, col))) {
+				moves.emplace_back(r, col);
+			}
 		}
 	}
-	return Filter(moves, [row, col](const XiangQiGameMove& move) {
-		auto r = (move.row - row) * (move.row - row);
-		auto c = (move.column - col) * (move.column - col);
-		return r + c >= 2;
-		});
+	return moves;
 }
 
 std::vector<XiangQiGameMove> Rules::GetPossibleMoves(const Pieces& pieces, const BoardStates& board) {

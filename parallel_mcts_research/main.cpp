@@ -24,13 +24,16 @@ boost::future<void> Simulation() {
 		MCTS<State, Move> ai1;
 		MCTS<State, Move> ai2;
 		State game;
-#ifdef _DEBUG
+//#ifdef _DEBUG
 		ai1.Initial(10, 10);
 		ai2.Initial(10, 10);
-#else
-		ai1.Initial(1000, 1000);
-		ai2.Initial(1000, 1000);
-#endif
+//#else
+		//ai1.Initial(1000, 1000);
+		//ai2.Initial(1000, 1000);
+//#endif
+
+		std::cout << game;
+
 		while (!game.IsTerminal()) {
 			if (game.GetPlayerID() == 2) {
 				//auto move = await ai2.ParallelSearchAsync();

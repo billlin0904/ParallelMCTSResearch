@@ -54,12 +54,11 @@ inline std::ostream& operator<<(std::ostream& ostr, const BoardStates& board_sta
 	return ostr;
 }
 
-
-const std::vector<Pieces>& GetRedPieces();
-
-const std::vector<Pieces>& GetBlackPieces();
-
 struct Rules {
+	static const std::vector<Pieces>& GetRedPieces();
+
+	static const std::vector<Pieces>& GetBlackPieces();
+
 	static std::vector<XiangQiGameMove> MovesOnSameLine(Colors color, int8_t row, int8_t col, const BoardStates& board);
 
 	static std::vector<XiangQiGameMove> GetCheLegalMove(Colors color, int8_t row, int8_t col, const BoardStates& board);
@@ -84,10 +83,10 @@ public:
 	explicit XiangQiGameAgent(int8_t player_id)
 		: player_id_(player_id) {
 		if (player_id_ == 1) {
-			pieces_ = GetRedPieces();
+			pieces_ = Rules::GetRedPieces();
 		}
 		else {
-			pieces_ = GetBlackPieces();
+			pieces_ = Rules::GetBlackPieces();
 		}
 	}
 
@@ -256,12 +255,12 @@ public:
 		if (is_capture) {
 			GetOppAgent().RemovePieces(pieces, board_states_);
 			GetAgent().ApplyMove(pieces, board_states_);
-			std::cout << *this << "\n";			
+			//std::cout << *this << "\n";			
 			winner_exists_ = GetOppAgent().IsExistJiang();
 			is_terminal_ = winner_exists_;
 		} else {
 			GetAgent().ApplyMove(pieces, board_states_);
-			std::cout << pieces << "\n" << *this << "\n";
+			//std::cout << pieces << "\n" << *this << "\n";
 		}		
 		player_id_ = ((player_id_ == 1) ? 2 : 1);
 	}
