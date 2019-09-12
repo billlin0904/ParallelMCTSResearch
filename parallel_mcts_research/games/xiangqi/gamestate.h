@@ -158,6 +158,8 @@ public:
 		ClearBoardStates(board_states);
 		SetPiece(pieces);
 		UpdateBoardState(board_states);
+		assert(!pieces_.empty());
+		assert(!legal_moves_.empty());
 	}
 
 	void UpdateBoardState(BoardStates& board_states) {		
@@ -170,15 +172,19 @@ public:
 
 	bool IsExistJiang() const {
 		return std::find_if(pieces_.cbegin(), pieces_.cend(), [](const Pieces &pieces) {
-			return pieces.type == PIECE_JIANG;
+			return pieces.type == PIECES_JIANG;
 			}) != pieces_.cend();
 	}
 
 	bool IsCaptureOppJiang(const BoardStates& board_states) const {
 		auto itr = std::find_if(pieces_.cbegin(), pieces_.cend(), [](const Pieces& pieces) {
-			return pieces.type == PIECE_JIANG;
+			return pieces.type == PIECES_JIANG;
 			});
 		return Rules::IsCaptureOppJiang((*itr), board_states);
+	}
+
+	bool IsLegalMoveEmpty() const {
+		return legal_moves_.empty();
 	}
 
 	void CalcLegalMoves(BoardStates& board_states) {
@@ -201,7 +207,7 @@ public:
 
 private:
 	void DebugMoves(const std::vector<XiangQiGameMove>& moves, PiecesType type, const BoardStates& board_states) const {
-		if (type != PIECE_JIANG) {
+		if (type != PIECES_JIANG) {
 			return;
 		}
 		for (auto row = MIN_ROW; row <= MAX_ROW; ++row) {
@@ -228,7 +234,6 @@ private:
 	int8_t player_id_;	
 	std::vector<Pieces> pieces_;
 	HashSet<Pieces> legal_moves_;
-	BoardStates board_states_;
 };
 
 class XiangQiGameState {
@@ -270,12 +275,19 @@ public:
 			//std::cout << *this << "\n";
 			winner_exists_ = !GetOppAgent().IsExistJiang();
 			is_terminal_ = winner_exists_;
+			
 		} else {
 			GetAgent().ApplyMove(pieces, board_states_);
 			winner_exists_ = GetAgent().IsCaptureOppJiang(board_states_);
 			is_terminal_ = winner_exists_;
 			//std::cout << pieces << "\n" << *this << "\n";
 		}
+
+		if (GetAgent().IsLegalMoveEmpty() || GetOppAgent().IsLegalMoveEmpty()) {
+			std::cout << pieces << "\n" << *this << "\n";
+			is_terminal_ = true;
+		}
+
 		if (!winner_exists_ || !is_terminal_) {
 			assert(GetAgent().IsExistJiang());
 			assert(GetOppAgent().IsExistJiang());

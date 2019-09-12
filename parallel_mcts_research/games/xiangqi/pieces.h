@@ -32,13 +32,13 @@ inline std::ostream& operator<<(std::ostream& lhs, const PiecesType& rhs) noexce
 		"S1", "S2",
 		"X1", "X2"
 	};
-	assert(rhs < _MAX_PIECE_TYPE_);
+	assert(rhs < _MAX_PIECES_TYPE_);
 	lhs << pieces_types_str[rhs];
 	return lhs;
 }
 
 struct Pieces {
-	Pieces(Colors color = COLOR_NONE, PiecesType type = PiecesType::PIECE_NONE, XiangQiGameMove pos = XiangQiGameMove())
+	Pieces(Colors color = COLOR_NONE, PiecesType type = PiecesType::PIECES_NONE, XiangQiGameMove pos = XiangQiGameMove())
 		: color(color)
 		, type(type)
 		, pos(pos) {
