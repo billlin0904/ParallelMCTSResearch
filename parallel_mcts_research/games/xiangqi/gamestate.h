@@ -19,6 +19,8 @@ namespace xiangqi {
 
 using namespace mcts;
 
+#define DEBUG_LEGAL_MOVES 0
+
 static const int32_t MIN_ROW = 1;
 static const int32_t MIN_COL = 1;
 
@@ -182,7 +184,7 @@ public:
 	void CalcLegalMoves(BoardStates& board_states) {
 		for (auto pieces : pieces_) {
 			auto moves = Rules::GetPossibleMoves(pieces, board_states);
-#ifdef _DEBUG
+#if DEBUG_LEGAL_MOVES
 			if (!moves.empty()) {
 				std::cout << pieces.color << " " << pieces.type << " max move: " << moves.size() << "\n";
 				DebugMoves(moves, pieces.type, board_states);
