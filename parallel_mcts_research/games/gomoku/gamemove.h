@@ -16,6 +16,9 @@ public:
 		, column(column) {
 	}
 
+	~GomokuGameMove() noexcept {
+	}
+
 	int8_t row;
 	int8_t column;
 

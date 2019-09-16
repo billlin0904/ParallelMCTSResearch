@@ -186,6 +186,7 @@
     <ClInclude Include="games\xiangqi\gamestate.h" />
     <ClInclude Include="games\xiangqi\pieces.h" />
     <ClInclude Include="games\xiangqi\piecestype.h" />
+    <ClInclude Include="games\xiangqi\smallvector.h" />
     <ClInclude Include="mcts.h" />
     <ClInclude Include="node.h" />
     <ClInclude Include="rng.h" />

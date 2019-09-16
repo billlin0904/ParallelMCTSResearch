@@ -12,6 +12,9 @@ public:
 		: index(index) {
 	}
 
+	~TicTacToeGameMove() noexcept {
+	}
+
 	size_t index;
 
 	std::string ToString() const {

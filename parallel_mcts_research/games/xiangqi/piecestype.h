@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include <cassert>
+#include <sstream>
+
 namespace xiangqi {
+
+static const int32_t MAX_MOVE = 20;
 
 enum Colors {
 	COLOR_NONE = 0,
@@ -37,5 +42,31 @@ enum PiecesType {
 	PIECES_XIANG2,
 	_MAX_PIECES_TYPE_,
 };
+
+inline std::ostream& operator<<(std::ostream& lhs, const Colors& rhs) noexcept {
+	if (rhs == COLOR_BLACK) {
+		lhs << "B";
+	}
+	else {
+		lhs << "R";
+	}
+	return lhs;
+}
+
+inline std::ostream& operator<<(std::ostream& lhs, const PiecesType& rhs) noexcept {
+	static const std::string pieces_types_str[] = {
+		"N0",
+		"J0",
+		"C1", "C2",
+		"P1", "P2",
+		"M1", "M2",
+		"B1", "B2", "B3", "B4", "B5",
+		"S1", "S2",
+		"X1", "X2"
+	};
+	assert(rhs < _MAX_PIECES_TYPE_);
+	lhs << pieces_types_str[rhs];
+	return lhs;
+}
 
 }

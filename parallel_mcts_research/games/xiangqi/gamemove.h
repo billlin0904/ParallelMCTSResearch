@@ -7,12 +7,14 @@
 
 namespace xiangqi {
 
-class XiangQiGameMove {
-public:
+struct XiangQiGameMove {
 	XiangQiGameMove(int8_t row = 0, int8_t column = 0) noexcept
 		: row(row)
 		, column(column) {
 	}
+
+	// Apply std::is_trivially_destructible<T> !
+	~XiangQiGameMove() noexcept = default;
 
 	int8_t row;
 	int8_t column;
@@ -26,7 +28,7 @@ public:
 		snprintf(buffer, 16, "%d,%d", row, column);
 		return buffer;
 	}
-private:
+
 	friend bool operator==(const XiangQiGameMove& lhs, const XiangQiGameMove& rhs) noexcept;
 };
 
