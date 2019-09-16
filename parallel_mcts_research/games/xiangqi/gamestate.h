@@ -28,7 +28,6 @@ static const int32_t MAX_ROW = 10;
 static const int32_t MAX_COL = 9;
 
 using BoardStates = HashMap<XiangQiGameMove, Pieces>;
-using PiecesLegalMoves = HashMap<PiecesType, LegalMoves>;
 
 inline std::ostream& operator<<(std::ostream& ostr, const BoardStates& board_states) {
 	for (auto row = MIN_ROW; row <= MAX_ROW; ++row) {
@@ -62,7 +61,7 @@ struct Rules {
 
 class XiangQiGameAgent {
 public:
-	explicit XiangQiGameAgent(int8_t player_id)
+	explicit XiangQiGameAgent(int8_t player_id, BoardStates& board_states)
 		: player_id_(player_id) {
 		if (player_id_ == 1) {
 			pieces_ = Rules::GetRedPieces();
@@ -70,41 +69,19 @@ public:
 		else {
 			pieces_ = Rules::GetBlackPieces();
 		}
-	}
 
-	void Initial(BoardStates& board_states) {
 		for (auto pieces : pieces_) {
 			board_states.insert(std::make_pair(pieces.pos, pieces));
 		}
+		ProcessLegalMoves(board_states);
 	}
 
-	Colors GetColor() const {
+	Colors GetColor() const noexcept {
 		return player_id_ != 1 ? COLOR_BLACK : COLOR_RED;
 	}
 
-	void ClearBoardStates(BoardStates& board_states) {
-		for (auto pieces : pieces_) {
-			auto itr = board_states.find(pieces.pos);
-			if (itr == board_states.end()) {
-				continue;
-			}
-			assert(pieces.color == GetColor());
-			board_states.erase(pieces.pos);
-		}
-	}
-
-	void RemovePieces(const Pieces& pieces, BoardStates& board_states) {
-		ClearBoardStates(board_states);
-		auto itr = std::find_if(pieces_.begin(), pieces_.end(), [&pieces](const Pieces& other) {
-			return pieces.pos == other.pos;
-			});
-		assert(itr != pieces_.end());	
-		pieces_.erase(itr);			
-		UpdateBoardState(board_states);
-	}	
-
 	bool IsLegalMoveEmpty() const {
-		return pieces_legal_moves_.empty();
+		return legal_moves_.empty();
 	}
 
 	const HashSet<Pieces>& GetLegalMoves() const {
@@ -112,58 +89,43 @@ public:
 	}
 
 	bool IsLegalMove(const Pieces& pieces) const {
-		auto itr = pieces_legal_moves_.find(pieces.type);
-		if (itr == pieces_legal_moves_.end()) {
-			return false;
-		}
-		return std::find_if((*itr).second.cbegin(), (*itr).second.cend(), [pieces](auto pos) {
-			return pieces.pos == pos;
-			}) != (*itr).second.cend();
+		return legal_moves_.find(pieces) != legal_moves_.end();
 	}
 
-	// 選擇其中棋子開始模擬
 	Pieces GetRandomMove() const {
-		auto itr = std::next(std::begin(legal_pieces_),
-			RNG::Get()(0, int32_t(legal_pieces_.size() - 1)));
+		auto itr = std::next(std::begin(legal_moves_),
+			RNG::Get()(0, int32_t(legal_moves_.size() - 1)));
 		return *itr;
 	}
 
-	XiangQiGameMove GetRandomMove(const Pieces& pieces) const {
-		auto itr = pieces_legal_moves_.find(pieces.type);
-		assert(itr != pieces_legal_moves_.end());
-		const auto moves = (*itr).second;
-		assert(!moves.empty());
-		auto idx = RNG::Get()(0, int32_t(moves.size() - 1));
-		return moves[idx];
+	void RemovePieces(const Pieces& pieces, BoardStates& board_states) {
+		ClearBoardStates(board_states);
+		auto itr = std::find_if(pieces_.begin(), pieces_.end(), [&pieces](const Pieces& other) {
+			return pieces.pos == other.pos;
+			});
+		assert(itr != pieces_.end());
+		pieces_.erase(itr);
+		UpdateBoardState(board_states);
 	}
 
-	void SetPiece(const Pieces& pieces, const BoardStates& board_states) {
+	void SetPiece(const Pieces& pieces) {
 		auto itr = std::find_if(pieces_.begin(), pieces_.end(),
 			[pieces](const Pieces& other) {
 				return pieces.type == other.type;
 			});
 		assert(itr != pieces_.end());
-		(*itr).pos = GetRandomMove(pieces);
-		(*itr).type = pieces.type;
-		(*itr).color = pieces.color;
+		(*itr) = pieces;
 	}
 
 	void ApplyMove(const Pieces& pieces, BoardStates& board_states) {
 		ClearBoardStates(board_states);
-		SetPiece(pieces, board_states);
+		SetPiece(pieces);
 		UpdateBoardState(board_states);
 		assert(!pieces_.empty());
-	}
-
-	void UpdateBoardState(BoardStates& board_states) {		
-		for (auto pieces : pieces_) {
-			board_states.insert(std::make_pair(pieces.pos, pieces));
-		}
-		CalcLegalMoves(board_states);
-	}
+	}	
 
 	bool IsExistJiang() const {
-		return std::find_if(pieces_.cbegin(), pieces_.cend(), [](const Pieces &pieces) {
+		return std::find_if(pieces_.cbegin(), pieces_.cend(), [](const Pieces& pieces) {
 			return pieces.type == PIECES_JIANG;
 			}) != pieces_.cend();
 	}
@@ -175,11 +137,9 @@ public:
 		return Rules::IsCaptureOppJiang((*itr), board_states);
 	}
 
-	void CalcLegalMoves(BoardStates& board_states) {
-		legal_moves_.clear();		
-		legal_pieces_.clear();
-		pieces_legal_moves_.clear();
-		for (auto& pieces : pieces_) {
+private:
+	void ProcessLegalMoves(BoardStates& board_states) {		
+		for (auto pieces : pieces_) {
 			const auto moves = Rules::GetPossibleMoves(pieces, board_states);
 #if DEBUG_LEGAL_MOVES
 			if (!moves.empty()) {
@@ -187,15 +147,37 @@ public:
 				DebugMoves(moves, pieces.color, pieces.type, board_states);
 			}
 #endif
-			if (!moves.empty()) {
-				legal_pieces_.push_back(pieces);
-				pieces_legal_moves_[pieces.type] = moves;
-				legal_moves_.insert(pieces);
-			}			
+			for (auto move : moves) {
+				Pieces temp = pieces;
+				temp.pos = move;
+				legal_moves_.insert(temp);
+			}
 		}
 	}
 
-private:
+	void CalcLegalMoves(BoardStates& board_states) {
+		legal_moves_.clear();
+		ProcessLegalMoves(board_states);
+	}
+
+	void UpdateBoardState(BoardStates& board_states) {
+		for (auto pieces : pieces_) {
+			board_states.insert(std::make_pair(pieces.pos, pieces));
+		}
+		CalcLegalMoves(board_states);
+	}
+
+	void ClearBoardStates(BoardStates & board_states) {
+		for (auto pieces : pieces_) {
+			auto itr = board_states.find(pieces.pos);
+			if (itr == board_states.end()) {
+				continue;
+			}
+			assert(pieces.color == GetColor());
+			board_states.erase(pieces.pos);
+		}
+	}
+
 	void DebugMoves(const LegalMoves& moves, Colors color, PiecesType type, const BoardStates& board_states) const {
 		if (type != PIECES_JIANG && type != PIECES_CHE1) {
 			return;
@@ -218,13 +200,11 @@ private:
 			}
 			std::cout << "\n";
 		}
-		std::cout << "\n----------\n";
+		std::cout << "\n";
 	}
 
 	int8_t player_id_;	
 	std::vector<Pieces> pieces_;
-	std::vector<Pieces> legal_pieces_;
-	PiecesLegalMoves pieces_legal_moves_;
 	HashSet<Pieces> legal_moves_;
 };
 
@@ -238,12 +218,8 @@ public:
 		: winner_exists_(false)
 		, is_terminal_(false)
 		, player_id_(1)
-		, agent_(player_id_)
-		, opp_agent_(player_id_ == 1 ? 2 : 1) {
-		agent_.Initial(board_states_);
-		opp_agent_.Initial(board_states_);
-		agent_.CalcLegalMoves(board_states_);
-		opp_agent_.CalcLegalMoves(board_states_);
+		, agent_(player_id_, board_states_)
+		, opp_agent_(player_id_ == 1 ? 2 : 1, board_states_) {		
 	}
 
 	Colors GetColor() const {
@@ -270,14 +246,14 @@ public:
 			
 		} else {
 			GetAgent().ApplyMove(pieces, board_states_);
-			winner_exists_ = GetAgent().IsCaptureOppJiang(board_states_);
-			is_terminal_ = winner_exists_;
 			//std::cout << pieces << "\n" << *this << "\n";
+			winner_exists_ = GetAgent().IsCaptureOppJiang(board_states_);
+			is_terminal_ = winner_exists_;			
 		}
 
 #ifdef _DEBUG
 		if (GetAgent().IsLegalMoveEmpty() || GetOppAgent().IsLegalMoveEmpty()) {
-			std::cout << pieces << "\n" << *this << "\n";
+			//std::cout << pieces << "\n" << *this << "\n";
 			assert(is_terminal_);
 		}
 #endif
@@ -286,6 +262,7 @@ public:
 			assert(GetAgent().IsExistJiang());
 			assert(GetOppAgent().IsExistJiang());
 		}
+
 		player_id_ = ((player_id_ == 1) ? 2 : 1);
 	}
 

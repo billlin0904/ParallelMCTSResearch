@@ -149,7 +149,7 @@ public:
 	using RoomHashMap = phmap::flat_hash_map<int32_t, std::unique_ptr<GomokuRoom>>;
 
 	GomokuGameServer()
-		: WebSocketServer("Gomoku GameServer/1.0") {
+		: WebSocketServer("GameServer/1.0") {
 		Logger::Get()
 			.AddDebugOutputLogger()
 			.AddFileLogger("gomoku.log");

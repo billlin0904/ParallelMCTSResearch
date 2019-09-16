@@ -18,7 +18,7 @@ enum Colors {
 enum PiecesType {
 	PIECES_NONE = 0,
 	// ±N­x
-	PIECES_JIANG = 1,
+	PIECES_JIANG,
 	// ¨®(Ju)
 	PIECES_CHE1,
 	PIECES_CHE2,

@@ -3,8 +3,8 @@
 #pragma once
 
 #define USE_PPL 1
-#define USE_STD_UNORDERED_SET 1
-#define USE_STD_UNORDERED_MAP 1
+#define USE_STD_UNORDERED_SET 0
+#define USE_STD_UNORDERED_MAP 0
 
 #if USE_STD_UNORDERED_SET
 #include <unordered_set>

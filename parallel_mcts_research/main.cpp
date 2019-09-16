@@ -23,13 +23,15 @@ boost::future<void> Simulation() {
 	while (true) {
 		MCTS<State, Move> ai1;
 		MCTS<State, Move> ai2;
+
 		State game;
+
 #ifdef _DEBUG
-		ai1.Initial(10, 10);
-		ai2.Initial(10, 10);
+		ai1.Initial(100, 100);
+		ai2.Initial(100, 100);
 #else
-		ai1.Initial(500, 500);
-		ai2.Initial(500, 500);
+		ai1.Initial(1500, 1500);
+		ai2.Initial(1500, 1500);
 #endif
 
 		std::cout << game;
