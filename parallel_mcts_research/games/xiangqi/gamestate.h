@@ -45,7 +45,7 @@ inline std::ostream& operator<<(std::ostream& ostr, const BoardStates& board_sta
 		}
 		ostr << "\n";
 	}
-	ostr << "\n----------\n";
+	ostr << "\n";
 	return ostr;
 }
 
@@ -134,6 +134,7 @@ public:
 		auto itr = std::find_if(pieces_.cbegin(), pieces_.cend(), [](const Pieces& pieces) {
 			return pieces.type == PIECES_JIANG;
 			});
+		assert(itr != pieces_.end());
 		return Rules::IsCaptureOppJiang((*itr), board_states);
 	}
 
@@ -222,7 +223,7 @@ public:
 		, opp_agent_(player_id_ == 1 ? 2 : 1, board_states_) {		
 	}
 
-	Colors GetColor() const {
+	Colors GetColor() const noexcept {
 		return player_id_ != 1 ? COLOR_BLACK : COLOR_RED;
 	}
 
@@ -256,12 +257,12 @@ public:
 			//std::cout << pieces << "\n" << *this << "\n";
 			assert(is_terminal_);
 		}
-#endif
 
 		if (!winner_exists_ || !is_terminal_) {
 			assert(GetAgent().IsExistJiang());
 			assert(GetOppAgent().IsExistJiang());
 		}
+#endif
 
 		player_id_ = ((player_id_ == 1) ? 2 : 1);
 	}
@@ -290,7 +291,9 @@ public:
 	}
 
 	std::string ToString() const {
-		return "";
+		std::ostringstream ostr;
+		ostr << *this;
+		return ostr.str();
 	}
 
 	int8_t GetWinner() const {

@@ -61,6 +61,7 @@ static inline std::optional<XiangQiGameMove> FindFirstOpponentOnRow(
 const std::vector<Pieces>& Rules::GetRedPieces() {
 	static const std::vector<Pieces> pieces{
 		{ COLOR_RED, PIECES_CHE1,   {1, 1} },
+		/*
 		{ COLOR_RED, PIECES_CHE2,   {1, 9} },
 		{ COLOR_RED, PIECES_PAO1,   {3, 2} },
 		{ COLOR_RED, PIECES_PAO2,   {3, 8} },
@@ -74,7 +75,8 @@ const std::vector<Pieces>& Rules::GetRedPieces() {
 		{ COLOR_RED, PIECES_BING2,  {4, 3} },
 		{ COLOR_RED, PIECES_BING3,  {4, 5} },
 		{ COLOR_RED, PIECES_BING4,  {4, 7} },
-		{ COLOR_RED, PIECES_BING5,  {4, 9} },
+		{ COLOR_RED, PIECES_BING5,  {4, 9} },*/
+		{ COLOR_RED, PIECES_BING3,  {4, 5} },
 		{ COLOR_RED, PIECES_JIANG,  {1, 5} },
 	};
 	return pieces;
@@ -82,6 +84,7 @@ const std::vector<Pieces>& Rules::GetRedPieces() {
 
 const std::vector<Pieces>& Rules::GetBlackPieces() {
 	static const std::vector<Pieces> pieces{
+		/*
 		{ COLOR_BLACK, PIECES_CHE1,   {10, 1} },
 		{ COLOR_BLACK, PIECES_CHE2,   {10, 9} },
 		{ COLOR_BLACK, PIECES_PAO1,   {8,  2} },
@@ -96,7 +99,8 @@ const std::vector<Pieces>& Rules::GetBlackPieces() {
 		{ COLOR_BLACK, PIECES_BING2,  {7,  3} },
 		{ COLOR_BLACK, PIECES_BING3,  {7,  5} },
 		{ COLOR_BLACK, PIECES_BING4,  {7,  7} },
-		{ COLOR_BLACK, PIECES_BING5,  {7,  9} },
+		{ COLOR_BLACK, PIECES_BING5,  {7,  9} },*/
+		{ COLOR_BLACK, PIECES_SHI1,   {10, 4} },
 		{ COLOR_BLACK, PIECES_JIANG,  {10, 5} },		
 	};
 	return pieces;
@@ -390,7 +394,7 @@ LegalMoves GetJiangLegalMove(Colors color, int8_t row, int8_t col, const BoardSt
 	LegalMoves moves;
 	auto found_opp_jiang = false;
 	auto pieces_count = 0;
-
+#if 0
 	if (color == COLOR_BLACK) {		
 		for (auto i = row - 1; i >= MIN_ROW; --i) {
 			XiangQiGameMove move(i, col);
@@ -427,6 +431,7 @@ LegalMoves GetJiangLegalMove(Colors color, int8_t row, int8_t col, const BoardSt
 			}
 		}
 	}
+#endif
 
 	if (col + 1 <= 6) {
 		XiangQiGameMove move(row, col + 1);

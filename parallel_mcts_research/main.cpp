@@ -27,8 +27,8 @@ boost::future<void> Simulation() {
 		State game;
 
 #ifdef _DEBUG
-		ai1.Initial(100, 100);
-		ai2.Initial(100, 100);
+		ai1.Initial(500, 500);
+		ai2.Initial(500, 500);
 #else
 		ai1.Initial(1500, 1500);
 		ai2.Initial(1500, 1500);
@@ -39,7 +39,7 @@ boost::future<void> Simulation() {
 		while (!game.IsTerminal()) {
 			if (game.GetPlayerID() == 2) {
 #ifdef _DEBUG
-				auto move = ai2.Search();
+				auto move = ai2.ParallelSearch();
 #else
 				auto move = await ai2.ParallelSearchAsync();				
 #endif
@@ -50,7 +50,7 @@ boost::future<void> Simulation() {
 			}
 			else {
 #ifdef _DEBUG
-				auto move = ai1.Search();
+				auto move = ai1.ParallelSearch();
 #else
 				auto move = await ai1.ParallelSearchAsync();
 #endif

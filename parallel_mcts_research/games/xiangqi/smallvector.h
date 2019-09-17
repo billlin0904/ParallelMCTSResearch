@@ -23,10 +23,10 @@ public:
 	template <typename Iterator>
 	SmallVector(Iterator begin, Iterator end) 
 		: SmallVector() {
-		Append(begin, end);
+		AppendCopy(begin, end);
 	}
 
-	SmallVector(const std::initializer_list<T>& list) 
+	explicit SmallVector(const std::initializer_list<T>& list)
 		: SmallVector(std::begin(list), std::end(list)) {
 	}
 
@@ -119,18 +119,18 @@ public:
 		return end();
 	}
 
-	iterator erase(iterator itr) {
-		iterator N = itr;
-		std::copy(itr + 1, this->end(), itr);
+	iterator erase(iterator S) {
+		iterator new_itr = S;
+		std::copy(S + 1, this->end(), S);
 		pop_back();
-		return N;
+		return new_itr;
 	}
 
 	iterator erase(iterator S, iterator E) {
-		iterator N = S;
-		iterator I = std::copy(E, this->end(), S);
-		Destory(I, this->end());
-		return N;
+		iterator new_itr = S;
+		iterator itr = std::copy(E, this->end(), S);
+		Destory(itr, this->end());
+		return new_itr;
 	}
 
 	void pop_back() {
@@ -162,7 +162,7 @@ private:
 	}
 
 	template <typename Iterator>
-	void Append(Iterator begin, Iterator end) {
+	void AppendCopy(Iterator begin, Iterator end) {
 		for (auto itr = begin; itr != end; ++itr) {
 			push_back(*itr);
 		}
@@ -172,13 +172,6 @@ private:
 	void AppendMove(Iterator begin, Iterator end) {
 		for (auto itr = begin; itr != end; ++itr) {
 			push_back(std::move(*itr));
-		}
-	}
-
-	template <typename Iterator>
-	void AppendCopy(Iterator begin, Iterator end) {
-		for (auto itr = begin; itr != end; ++itr) {
-			push_back(*itr);
 		}
 	}
 
@@ -194,16 +187,6 @@ private:
 		void* placement = buffer_.data() + length_;
 		new(placement) T(std::forward<Args>(args)...);
 		++length_;
-	}
-
-	void CheckLength(size_t index) const {
-		if (index >= length_) {
-#ifdef _DEBUG
-			assert(0 && "Out of range");
-#else
-			throw std::out_of_range("Out of range");
-#endif
-		}
 	}
 
 	size_t length_;
