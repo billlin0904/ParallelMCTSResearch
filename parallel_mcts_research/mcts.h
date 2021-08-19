@@ -97,9 +97,9 @@ const typename MCTS<State, Move, UCB1Policy>::node_ptr_type& MCTS<State, Move, U
 template <typename State, typename Move, typename UCB1Policy>
 typename MCTS<State, Move, UCB1Policy>::node_ptr_type MCTS<State, Move, UCB1Policy>::GetBestUCBChild(const typename MCTS<State, Move, UCB1Policy>::node_ptr_type& parent) const {
     const auto& candidate_node = parent->GetChildren();
-    auto itr = std::max_element(candidate_node.cbegin(), candidate_node.cend(), [this](
+    auto itr = std::max_element(candidate_node.cbegin(), candidate_node.cend(), [](
                                 const typename MCTS<State, Move, UCB1Policy>::node_ptr_type& first,
-                                const typename MCTS<State, Move, UCB1Policy>::node_ptr_type& last) {
+                                const typename MCTS<State, Move, UCB1Policy>::node_ptr_type& last) noexcept {
         return first->GetUCB() > last->GetUCB();
     });
     return *itr;
@@ -111,7 +111,7 @@ typename MCTS<State, Move, UCB1Policy>::node_ptr_type MCTS<State, Move, UCB1Poli
     auto itr = std::max_element(candidate_node.cbegin(), candidate_node.cend(),
                                 [](
 								const typename MCTS<State, Move, UCB1Policy>::node_ptr_type& large,
-                                const typename MCTS<State, Move, UCB1Policy>::node_ptr_type& node) {
+                                const typename MCTS<State, Move, UCB1Policy>::node_ptr_type& node) noexcept {
 		return node->GetWinRate() > large->GetWinRate();
     });
     return *itr;
@@ -131,12 +131,12 @@ Move MCTS<State, Move, UCB1Policy>::Search() {
     current_node_ = GetBestChild(current_node_);
     return current_node_->GetLastMove();
 }
-	
+
 template <typename State, typename Move, typename UCB1Policy>
 Move MCTS<State, Move, UCB1Policy>::ParallelSearch() {
 	cancelled_ = false;
     // Leaf Parallelisation
-    concurrency::parallel_for(0, evaluate_count_,
+    mcts::ParallelFor(evaluate_count_,
     [this](int32_t) {
 		if (cancelled_) {
 			return;

@@ -27,14 +27,14 @@ void Simulation() {
 
 		while (!game.IsTerminal()) {
 			if (game.GetPlayerID() == 2) {
-				auto move = ai2.ParallelSearch();
+                auto move = ai2.ParallelSearch();
 				assert(game.IsLegalMove(move));
 				std::cout << "AI2 turn! " << move.ToString() << " rate:" << static_cast<int32_t>(ai2.GetCurrentNode()->GetWinRate() * 100) << "%\n";
 				game.ApplyMove(move);
 				ai1.SetOpponentMove(move);
 			}
 			else {
-				auto move = ai1.ParallelSearch();
+                auto move = ai1.ParallelSearch();
 				assert(game.IsLegalMove(move));
 				std::cout << "AI1 turn! " << move.ToString() << " rate:" << static_cast<int32_t>(ai1.GetCurrentNode()->GetWinRate() * 100) << "%\n";
 				game.ApplyMove(move);
@@ -49,18 +49,18 @@ void Simulation() {
 			stats[game.GetWinner()]++;
 		}
 		else {
-			stats[State::EMPTY]++;
+            stats[State::kEmpty]++;
 		}
 
-		std::cout << State::PLAYER1 << " win:" << stats[State::PLAYER1] << "\n";
-		std::cout << State::PLAYER2 << " win:" << stats[State::PLAYER2] << "\n";
-		std::cout << "Tie" << " win:" << stats[State::EMPTY] << "\n";
+        std::cout << State::kPlayer1 << " win:" << stats[State::kPlayer1] << "\n";
+        std::cout << State::kPlayer2 << " win:" << stats[State::kPlayer2] << "\n";
+        std::cout << "Tie" << " win:" << stats[State::kEmpty] << "\n";
 	}
 }
 
 int main() {
-	using namespace gomoku;
-	Simulation<GomokuGameState, GomokuGameMove>();
-	//using namespace tictactoe;
-	//Simulation<TicTacToeGameState, TicTacToeGameMove>();
+    using namespace gomoku;
+    Simulation<GomokuGameState, GomokuGameMove>();
+    //using namespace tictactoe;
+    //Simulation<TicTacToeGameState, TicTacToeGameMove>();
 }

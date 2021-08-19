@@ -4,10 +4,11 @@
 
 #include <cstdint>
 #include <array>
+#include <iostream>
 
-#include "../mcts.h"
-#include "../rng.h"
-#include "../tweakme.h"
+#include "../../mcts.h"
+#include "../../rng.h"
+#include "../../tweakme.h"
 #include "gamemove.h"
 
 namespace tictactoe {
@@ -16,15 +17,15 @@ using namespace mcts;
 
 class TicTacToeGameState {
 public:
-	static const int8_t PLAYER1 = 'O';
-	static const int8_t PLAYER2 = 'X';
-	static const int8_t EMPTY = ' ';
+    static constexpr int8_t kPlayer1 = 'O';
+    static constexpr int8_t kPlayer2 = 'X';
+    static constexpr int8_t kEmpty = ' ';
 
 	TicTacToeGameState() noexcept
 		: winner_exists_(false)
 		, is_terminal_(false)
 		, player_id_(1) {
-		board_.fill(EMPTY);
+        board_.fill(kEmpty);
 	}
 
 	bool IsTerminal() const noexcept {
@@ -37,18 +38,18 @@ public:
 
 	void ApplyMove(const TicTacToeGameMove& move) {
 		if (player_id_ == 1) {
-			board_.at(move.index) = PLAYER1;
+            board_.at(move.index) = kPlayer1;
 		}
 		else {
-			board_.at(move.index) = PLAYER2;
+            board_.at(move.index) = kPlayer2;
 		}
 
-		if (CheckWinner() != EMPTY) {
+        if (CheckWinner() != kEmpty) {
 			winner_exists_ = true;
 			is_terminal_ = true;
 		}
 		else {
-			auto itr = std::find(board_.begin(), board_.end(), EMPTY);
+            auto itr = std::find(board_.begin(), board_.end(), kEmpty);
 			if (itr == board_.end()) {
 				is_terminal_ = true;
 			}
@@ -78,14 +79,14 @@ public:
 		if (board_.size() < move.index) {
 			return false;
 		}
-		return board_.at(move.index) == EMPTY;
+        return board_.at(move.index) == kEmpty;
 	}
 
 	HashSet<TicTacToeGameMove> GetLegalMoves() const noexcept {
 		HashSet<TicTacToeGameMove> legal_moves;
 		int32_t i = 0;
 		for (auto c : board_) {
-			if (c == EMPTY) {
+            if (c == kEmpty) {
 				legal_moves.emplace(i);
 			}
 			i++;
@@ -114,7 +115,7 @@ public:
 			return board_[2];
 		}
 
-		return EMPTY;
+        return kEmpty;
 	}
 
 	std::string ToString() const {

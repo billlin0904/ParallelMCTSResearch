@@ -1,17 +1,14 @@
 TEMPLATE = app
-CONFIG += console c++11
+CONFIG += console c++17
 CONFIG -= app_bundle
 CONFIG -= qt
 
-SOURCES += main.cpp\
-            ./websocket/websocket.cpp\
-            ./websocket/logger.cpp \
-           ./websocket/websocket_client.cpp\
-           ./websocket/websocket_server.cpp\
+SOURCES += main.cpp \
+           rng.cpp
 
-INCLUDEPATH += ./thirdparty/rapidjson/include/
+
 INCLUDEPATH += ./thirdparty/spdlog/include/
-INCLUDEPATH += ./thirdparty/parallel-hashmap/
+INCLUDEPATH += /games
 
 linux-g++* {
 CONFIG(debug, debug|release) {
@@ -23,24 +20,12 @@ CONFIG(debug, debug|release) {
     QMAKE_CXXFLAGS_RELEASE -= -O2
     QMAKE_CXXFLAGS_RELEASE *= -O3
 }
-
-INCLUDEPATH += /home/rdbill0452/libs/boost_1_70_0/ \
-
-LIBS += -L/home/rdbill0452/libs/boost_1_70_0/stage/lib \
-    -lboost_system \
-    -lboost_filesystem \
-    -lboost_thread \
-
-LIBS += -lssl -lcrypto -lpthread \
 }
 
 HEADERS += \
     rng.h \
     node.h \
-    utility.h \
-    ./websocket/websocket_client.h \
-    ./websocket/websocket_server.h \
-    ./websocket/logger.h \
     mcts.h \
-    websocket/websocket_server.h \
-    websocket/websocket.h
+    threadpool.h \
+    games\gomoku\gamestate.h \
+    games\tictactoe\gamestate.h \
