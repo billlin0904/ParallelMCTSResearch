@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <cassert>
 #include <cstdint>
 #include <sstream>
 #include <iomanip>

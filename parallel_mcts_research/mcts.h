@@ -11,14 +11,6 @@
 #include "node.h"
 #include "ucbpolicy.h"
 
-#include "boost_coroutine.h"
-
-#if USE_PPL && defined(_WIN32)
-#include <ppl.h>
-#else
-#include "threadpool.h"
-#endif
-
 namespace mcts {
 
 template <typename State, typename Move, typename UCB1Policy = DefaultUCB1Policy>
@@ -42,11 +34,7 @@ public:
 
     Move Search();
 
-	boost::future<Move> SearchAsync();
-
     Move ParallelSearch();
-
-	boost::future<Move> ParallelSearchAsync();
 
     void SetOpponentMove(const Move& opponent_move);
 
@@ -143,21 +131,12 @@ Move MCTS<State, Move, UCB1Policy>::Search() {
     current_node_ = GetBestChild(current_node_);
     return current_node_->GetLastMove();
 }
-
-template <typename State, typename Move, typename UCB1Policy>
-boost::future<Move> MCTS<State, Move, UCB1Policy>::SearchAsync() {
-	co_return Search();
-}
-
+	
 template <typename State, typename Move, typename UCB1Policy>
 Move MCTS<State, Move, UCB1Policy>::ParallelSearch() {
 	cancelled_ = false;
     // Leaf Parallelisation
-#if USE_PPL && defined(_WIN32)
     concurrency::parallel_for(0, evaluate_count_,
-#else
-    ParallelFor(evaluate_count_,
-#endif
     [this](int32_t) {
 		if (cancelled_) {
 			return;
@@ -175,11 +154,6 @@ Move MCTS<State, Move, UCB1Policy>::ParallelSearch() {
     });
     current_node_ = GetBestChild(current_node_);
     return current_node_->GetLastMove();
-}
-
-template <typename State, typename Move, typename UCB1Policy>
-boost::future<Move> MCTS<State, Move, UCB1Policy>::ParallelSearchAsync() {
-	co_return ParallelSearch();
 }
 
 template <typename State, typename Move, typename UCB1Policy>

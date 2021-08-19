@@ -88,7 +88,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <OmitFramePointers>true</OmitFramePointers>
       <WholeProgramOptimization>true</WholeProgramOptimization>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
     <Link>
@@ -102,8 +102,9 @@
       <RandomizedBaseAddress>true</RandomizedBaseAddress>
       <SubSystem>Console</SubSystem>
       <SuppressStartupBanner>true</SuppressStartupBanner>
-      <AdditionalDependencies>libtcmalloc_minimal.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <ForceSymbolReferences>__tcmalloc</ForceSymbolReferences>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <ForceSymbolReferences>
+      </ForceSymbolReferences>
     </Link>
     <Midl>
       <DefaultCharType>Unsigned</DefaultCharType>
@@ -165,39 +166,22 @@
     </QtMoc>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="games\xiangqi\gamestate.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="rng.cpp" />
     <ClCompile Include="websocket\logger.cpp" />
-    <ClCompile Include="websocket\websocket.cpp" />
-    <ClCompile Include="websocket\websocket_client.cpp" />
-    <ClCompile Include="websocket\websocket_server.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="boost_coroutine.h" />
-    <ClInclude Include="games\gomoku\packetencoder.h" />
-    <ClInclude Include="games\gomoku\gameclient.h" />
     <ClInclude Include="games\gomoku\gamemove.h" />
-    <ClInclude Include="games\gomoku\gameserver.h" />
     <ClInclude Include="games\gomoku\gamestate.h" />
     <ClInclude Include="games\tictactoe\gamemove.h" />
     <ClInclude Include="games\tictactoe\gamestate.h" />
-    <ClInclude Include="games\xiangqi\gamemove.h" />
-    <ClInclude Include="games\xiangqi\gamestate.h" />
-    <ClInclude Include="games\xiangqi\pieces.h" />
-    <ClInclude Include="games\xiangqi\piecestype.h" />
-    <ClInclude Include="games\xiangqi\smallvector.h" />
     <ClInclude Include="mcts.h" />
     <ClInclude Include="node.h" />
     <ClInclude Include="rng.h" />
-    <ClInclude Include="threadpool.h" />
     <ClInclude Include="tweakme.h" />
     <ClInclude Include="ucbpolicy.h" />
     <ClInclude Include="utility.h" />
     <ClInclude Include="websocket\logger.h" />
-    <ClInclude Include="websocket\websocket.h" />
-    <ClInclude Include="websocket\websocket_client.h" />
-    <ClInclude Include="websocket\websocket_server.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">

@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 
 #include "../mcts.h"
 #include "../rng.h"

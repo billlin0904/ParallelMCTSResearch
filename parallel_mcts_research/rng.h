@@ -13,10 +13,9 @@ class RNG {
 public:
 	static RNG& Get();
 
-    template <typename T>
-    inline T operator()(T min, T max) noexcept {
-		static thread_local std::uniform_int_distribution<T> distribution;
-		return distribution(engine_, decltype(distribution)::param_type{ min, max });
+    template<class T, std::enable_if_t<std::is_integral<T>::value>* = nullptr>
+    T operator()(T min, T max) noexcept {
+        return std::uniform_int_distribution(min, max)(engine_);
     }
 
 private:
