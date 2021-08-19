@@ -16,16 +16,16 @@ namespace mcts {
 template <typename State, typename Move, typename UCB1Policy = DefaultUCB1Policy>
 class MCTS {
 public:
-	static const int32_t MAX_EVALUATE_COUNT = 64;
-	static const int32_t MAX_ROLLOUT_COUNT = 128;
+    static constexpr int32_t kMaxEvaluateCount = 64;
+    static constexpr int32_t kMaxRolloutCount = 128;
 
     using node_type = Node<State, Move, UCB1Policy>;
     using node_ptr_type = typename Node<State, Move, UCB1Policy>::ptr_type;
     using children_vector_type = std::vector<node_ptr_type>;
 
-    MCTS(int32_t evaluate_count = MAX_EVALUATE_COUNT, int32_t rollout_limit = MAX_ROLLOUT_COUNT);
+    MCTS(int32_t evaluate_count = kMaxEvaluateCount, int32_t rollout_limit = kMaxRolloutCount);
 
-    explicit MCTS(const State& state, int32_t evaluate_count = MAX_EVALUATE_COUNT, int32_t rollout_limit = MAX_ROLLOUT_COUNT);
+    explicit MCTS(const State& state, int32_t evaluate_count = kMaxEvaluateCount, int32_t rollout_limit = kMaxRolloutCount);
 
     MCTS(const MCTS&) = default;
     MCTS& operator=(const MCTS &) = default;
@@ -136,8 +136,7 @@ template <typename State, typename Move, typename UCB1Policy>
 Move MCTS<State, Move, UCB1Policy>::ParallelSearch() {
 	cancelled_ = false;
     // Leaf Parallelisation
-    mcts::ParallelFor(evaluate_count_,
-    [this](int32_t) {
+    mcts::ParallelFor(evaluate_count_, [this](int32_t) {
 		if (cancelled_) {
 			return;
 		}
