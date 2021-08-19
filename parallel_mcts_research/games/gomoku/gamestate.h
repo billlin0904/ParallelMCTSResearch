@@ -71,9 +71,9 @@ public:
 
 	double Evaluate() const noexcept {
 		if ((is_terminal_ == true) && (winner_exists_ == false)) {
-			return 0.0;
+            return 0.5;
 		}
-		return (player_id_ == 1) ? -1 : 1;
+        return (player_id_ == 1) ? 0 : 1;
 	}
 
 	bool IsTerminal() const noexcept {

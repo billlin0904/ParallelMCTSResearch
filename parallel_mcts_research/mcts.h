@@ -13,6 +13,8 @@
 
 namespace mcts {
 
+using namespace std::chrono;
+
 template <typename State, typename Move, typename UCB1Policy = DefaultUCB1Policy>
 class MCTS {
 public:
@@ -34,7 +36,7 @@ public:
 
     Move Search();
 
-    Move ParallelSearch();
+    Move ParallelSearch(milliseconds search_time = milliseconds(2000));
 
     void SetOpponentMove(const Move& opponent_move);
 
@@ -133,13 +135,15 @@ Move MCTS<State, Move, UCB1Policy>::Search() {
 }
 
 template <typename State, typename Move, typename UCB1Policy>
-Move MCTS<State, Move, UCB1Policy>::ParallelSearch() {
-	cancelled_ = false;
+Move MCTS<State, Move, UCB1Policy>::ParallelSearch(milliseconds search_time) {
+    cancelled_ = false;
     // Leaf Parallelisation
-    mcts::ParallelFor(evaluate_count_, [this](int32_t) {
-		if (cancelled_) {
-			return;
-		}
+    auto start_tp = steady_clock::now();
+    mcts::ParallelFor(evaluate_count_, [this, start_tp, search_time](int32_t) {
+        cancelled_ = duration_cast<milliseconds>(steady_clock::now() - start_tp) > search_time;
+        if (cancelled_) {
+            return;
+        }
         node_ptr_type selected_parent;
         node_ptr_type selected_leaf;
         {

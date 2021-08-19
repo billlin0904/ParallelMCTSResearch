@@ -20,8 +20,8 @@ void Simulation() {
 
 		State game;
 
-		ai1.Initial(1500, 1500);
-		ai2.Initial(1500, 1500);
+        ai1.Initial(1500, 3000);
+        ai2.Initial(1500, 3000);
 
 		std::cout << game;
 
