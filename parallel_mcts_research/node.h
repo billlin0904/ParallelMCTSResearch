@@ -10,6 +10,11 @@
 
 namespace mcts {
 
+enum {
+	kPlayerID = 1,
+    kOpponentID = 2,
+};
+
 template <typename State, typename Move, typename UCB1Policy>
 class Node;
 
@@ -27,15 +32,18 @@ public:
     using ptr_type = NodePtr<State, Move, UCB1Policy>;
     using parent_ptr_type = WeakPtr<State, Move, UCB1Policy>;
 
-    Node(State state = State(),
-         Move move = Move(),
-         NodePtr<State, Move, UCB1Policy> parent = nullptr)
+    explicit Node(State state = State(),
+                  Move move = Move(),
+                  ptr_type parent = nullptr)
         : player_id_(state.GetPlayerID())        
         , move_(move)
         , parent_(parent)
         , possible_moves_(state.GetLegalMoves())
 		, board_states_(state) {
     }
+
+    Node(const Node&) = delete;
+    Node& operator=(const Node&) = delete;
 
     ptr_type MakeChild(const Move &next_move) {
         State next_state(board_states_);
@@ -50,27 +58,27 @@ public:
         return new_node;
     }
 
-	inline bool IsLeaf() const noexcept {
+    [[nodiscard]] bool IsLeaf() const noexcept {
         return !children_.empty();
     }
 
-	inline bool HasPassibleMoves() const noexcept {
-		return possible_moves_.empty();
+    [[nodiscard]] bool HasPassibleMoves() const noexcept {
+		return !possible_moves_.empty();
 	}
 
     void Update(double score) noexcept {
 		ucb1_policy_.Update(score);
     }
 
-	void Update(double score, int64_t visits) noexcept {
+	void Update(double score, int32_t visits) noexcept {
 		ucb1_policy_.Update(score, visits);
 	}    
 
-    double GetScore() const noexcept {
+    [[nodiscard]] double GetScore() const noexcept {
 		return ucb1_policy_.GetScore();
     }
 
-    int64_t GetVisits() const noexcept {
+    [[nodiscard]] int64_t GetVisits() const noexcept {
         return ucb1_policy_.GetVisits();
     }
 
@@ -86,7 +94,7 @@ public:
         return move_;
     }
 
-    int8_t GetPlayerID() const noexcept {
+    [[nodiscard]] int8_t GetPlayerID() const noexcept {
         return player_id_;
     }
 
@@ -98,16 +106,16 @@ public:
         return parent_.lock();
     }
 
-    size_t GetChildrenSize() const noexcept {
+    [[nodiscard]] size_t GetChildrenSize() const noexcept {
         return children_.size();
     }
 
-    double GetUCB() const noexcept {
+    [[nodiscard]] double GetUCB() const noexcept {
         return ucb1_policy_(GetParent()->GetVisits());
     }
 
-	inline double GetWinRate() const {
-		return GetScore() / double(GetVisits());
+    [[nodiscard]] double GetWinRate() const {
+		return GetScore() / static_cast<double>(GetVisits());
 	}
 
 private:
@@ -120,7 +128,7 @@ private:
     parent_ptr_type parent_;
 	UCB1Policy ucb1_policy_;
     std::vector<ptr_type> children_;
-	HashSet<Move> possible_moves_;
+    HashSet<Move> possible_moves_;
 	State board_states_;
 };
 

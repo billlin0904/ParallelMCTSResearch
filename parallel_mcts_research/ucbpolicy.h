@@ -11,16 +11,16 @@ namespace mcts {
 // Upper Confidence Bounds
 class DefaultUCB1Policy {
 public:
-    DefaultUCB1Policy()
+    DefaultUCB1Policy() noexcept
         : score_(0)
         , visits_(0) {
     }
 
-    double GetScore() const noexcept {
+    [[nodiscard]] double GetScore() const noexcept {
         return score_;
     }
 
-    int64_t GetVisits() const noexcept {
+    [[nodiscard]] int64_t GetVisits() const noexcept {
         return visits_;
     }
 
@@ -29,20 +29,21 @@ public:
 		++visits_;
 	}
 
-    void Update(double score, int64_t visits) noexcept {
+    void Update(double score, int32_t visits) noexcept {
         score_ += score;
 		visits_ += visits;
     }
 
-    inline double operator()(double parent_visits) const {
-        return (score_ / visits_)
-                + DefaultConstant() * std::sqrt(std::log(parent_visits))
-                / double(visits_);
+    double operator()(int64_t total_visits) const {
+    	if (total_visits == 0) {
+            return std::numeric_limits<double>::max();
+    	}
+        return (score_ / static_cast<double>(visits_)
+                + DefaultConstant() * std::sqrt(std::log(total_visits) / static_cast<double>(visits_)));
     }
 private:
-    static double DefaultConstant() noexcept {
-        static const auto c = std::sqrt(2.0);
-        return c;
+    static double DefaultConstant() noexcept {      
+        return 1.4;
     }
     double score_;
     int64_t visits_;
@@ -51,17 +52,17 @@ private:
 // Upper Confidence Bounds Tuned
 class UCB1TunedPolicy {
 public:
-    UCB1TunedPolicy()
+    UCB1TunedPolicy() noexcept
         : score_(0)
         , visits_(0)
         , sqrt_score_(0) {
     }
 
-    double GetScore() const noexcept {
+    [[nodiscard]] double GetScore() const noexcept {
         return score_;
     }
 
-    int64_t GetVisits() const noexcept {
+    [[nodiscard]] int64_t GetVisits() const noexcept {
         return visits_;
     }
 
@@ -71,14 +72,14 @@ public:
         ++visits_;
     }
 
-	void Update(double score, int64_t visits) noexcept {
+	void Update(double score, int32_t visits) noexcept {
 		score_ += score;
 		sqrt_score_ += sqrt_score_ * sqrt_score_;
 		visits_ += visits;
 	}
 
-    inline double operator()(double parent_visits) const {
-        static const auto MAX_BERNOULLI_RANDOM_VARIABLE_VARIANCE = 0.25;
+    double operator()(double parent_visits) const {
+        const auto MAX_BERNOULLI_RANDOM_VARIABLE_VARIANCE = 0.25;
         return (score_ / visits_)
                 + std::sqrt(std::log(parent_visits) / visits_)
                 * std::min(MAX_BERNOULLI_RANDOM_VARIABLE_VARIANCE,

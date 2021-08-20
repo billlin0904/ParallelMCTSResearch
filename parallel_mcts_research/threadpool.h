@@ -205,7 +205,7 @@ public:
     std::future<typename std::result_of<F(Args ...)>::type> Spawn(F&& f, Args&& ... args);
 
 private:
-    explicit ThreadPool(size_t max_thread = std::thread::hardware_concurrency())
+    explicit ThreadPool(size_t max_thread = std::thread::hardware_concurrency() * 2 + 1)
         : scheduler_(max_thread) {
     }
 

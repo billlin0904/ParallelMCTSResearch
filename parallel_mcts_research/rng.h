@@ -3,9 +3,6 @@
 #pragma once
 
 #include <random>
-#include <mutex>
-#include <algorithm>
-#include <functional>
 
 namespace mcts {
 

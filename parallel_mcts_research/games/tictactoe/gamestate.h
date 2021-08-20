@@ -21,10 +21,10 @@ public:
     static constexpr int8_t kPlayer2 = 'X';
     static constexpr int8_t kEmpty = ' ';
 
-	TicTacToeGameState() noexcept
+	TicTacToeGameState()
 		: winner_exists_(false)
 		, is_terminal_(false)
-		, player_id_(1) {
+		, player_id_(kPlayerID) {
         board_.fill(kEmpty);
 	}
 
@@ -37,7 +37,7 @@ public:
 	}
 
 	void ApplyMove(const TicTacToeGameMove& move) {
-		if (player_id_ == 1) {
+		if (player_id_ == kPlayerID) {
             board_.at(move.index) = kPlayer1;
 		}
 		else {
@@ -47,27 +47,26 @@ public:
         if (CheckWinner() != kEmpty) {
 			winner_exists_ = true;
 			is_terminal_ = true;
-		}
-		else {
-            auto itr = std::find(board_.begin(), board_.end(), kEmpty);
+		} else {
+            auto itr = std::find(board_.cbegin(), board_.cend(), kEmpty);
 			if (itr == board_.end()) {
 				is_terminal_ = true;
 			}
 		}
-		player_id_ = ((player_id_ == 1) ? 2 : 1);
+		player_id_ = ((player_id_ == kPlayerID) ? kOpponentID : kPlayerID);
 		last_move_ = move;
 	}
 
 	double Evaluate() const noexcept {
 		if ((is_terminal_ == true) && (winner_exists_ == false)) {
-			return 0.0;
+			return 0;
 		}
-		return (player_id_ == 1) ? -1 : 1;
+		return (player_id_ == kPlayerID) ? -1 : 1;
 	}
 
 	TicTacToeGameMove GetRandomMove() const {
 		auto legal_moves = GetLegalMoves();
-		auto itr = std::next(std::begin(legal_moves), RNG::Get()(0, int32_t(legal_moves.size() - 1)));
+		auto itr = std::next(std::begin(legal_moves), RNG::Get()(0, static_cast<int32_t>(legal_moves.size() - 1)));
 		return *itr;
 	}
 
@@ -116,15 +115,6 @@ public:
 		}
 
         return kEmpty;
-	}
-
-	std::string ToString() const {
-		std::ostringstream ostr;
-		for (auto i = 0; i < 3; ++i) {
-			auto idx = 3 * i;
-			ostr << board_[idx] << board_[idx + 1] << board_[idx + 2];
-		}
-		return ostr.str();
 	}
 
 	int8_t GetWinner() const {

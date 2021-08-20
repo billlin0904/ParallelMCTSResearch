@@ -16,8 +16,8 @@ namespace gomoku {
 
 using namespace mcts;
 
-inline constexpr int32_t kMaxWidth = 10;
-inline constexpr int32_t kMaxHeight = 10;
+inline constexpr int32_t kMaxWidth = 7;
+inline constexpr int32_t kMaxHeight = 7;
 
 class GomokuGameState {
 public:
@@ -25,7 +25,7 @@ public:
     static constexpr int8_t kPlayer2 = '@';
     static constexpr int8_t kEmpty = ' ';
 
-	GomokuGameState() noexcept
+	GomokuGameState()
 		: winner_exists_(false)
 		, is_terminal_(false)
 		, player_id_(1)
@@ -49,31 +49,31 @@ public:
 	}
 
 	void ApplyMove(const GomokuGameMove& move) {
-		if (player_id_ == 1) {
+		if (player_id_ == kPlayerID) {
             board_[move.row][move.column] = kPlayer1;
 		}
 		else {
             board_[move.row][move.column] = kPlayer2;
 		}
 
-		legal_moves_.erase(move);
+		auto result = legal_moves_.erase(move);
+		assert(result != 0);
 
 		--remain_move_;
         if (CheckWinner(move) != kEmpty) {
 			winner_exists_ = true;
 			is_terminal_ = true;
-		}
-		else {
+		} else {
 			CheckTerminal();
 		}
-		player_id_ = ((player_id_ == 1) ? 2 : 1);
+		player_id_ = ((player_id_ == kPlayerID) ? kOpponentID : kPlayerID);
 	}
 
 	double Evaluate() const noexcept {
 		if ((is_terminal_ == true) && (winner_exists_ == false)) {
-            return 0.5;
+            return 0;
 		}
-        return (player_id_ == 1) ? 0 : 1;
+        return (player_id_ == kPlayerID) ? -1 : 1;
 	}
 
 	bool IsTerminal() const noexcept {
@@ -106,16 +106,6 @@ public:
 
 	const HashSet<GomokuGameMove>& GetLegalMoves() const noexcept {
 		return legal_moves_;
-	}
-
-	std::string ToString() const {
-		std::ostringstream ostr;
-        for (auto row = 0; row < kMaxWidth; ++row) {
-            for (auto col = 0; col < kMaxHeight; ++col) {
-				ostr << board_[row][col];
-			}
-		}
-		return ostr.str();
 	}
 
 	int8_t GetWinner() const {
@@ -159,25 +149,25 @@ private:
         return kEmpty;
 	}
 
-	int8_t Count(int8_t player, int32_t row, int32_t col, int32_t dirX, int32_t dirY) const noexcept {
+	int8_t Count(int8_t player, int32_t row, int32_t col, int32_t dir_x, int32_t dir_y) const noexcept {
 		auto ct = 1;
 
-		auto r = row + dirX;
-		auto c = col + dirY;
+		auto r = row + dir_x;
+		auto c = col + dir_y;
 
         while (r >= 0 && r < kMaxWidth && c >= 0 && c < kMaxHeight && board_[r][c] == player) {
 			ct++;
-			r += dirX;
-			c += dirY;
+			r += dir_x;
+			c += dir_y;
 		}
 
-		r = row - dirX;
-		c = col - dirY;
+		r = row - dir_x;
+		c = col - dir_y;
 
         while (r >= 0 && r < kMaxWidth && c >= 0 && c < kMaxHeight && board_[r][c] == player) {
 			ct++;
-			r -= dirX;
-			c -= dirY;
+			r -= dir_x;
+			c -= dir_y;
 		}
 		return ct;
 	}

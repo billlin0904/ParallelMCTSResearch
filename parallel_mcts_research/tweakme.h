@@ -4,13 +4,12 @@
 
 
 #include "threadpool.h"
-#include <unordered_set>
-#include <unordered_map>
+
+#include <robin_hood.h>
 
 template <typename T>
-using HashSet = std::unordered_set<T>;
+using HashSet = robin_hood::unordered_set<T>;
 
 template <typename Key, typename Value>
-using HashMap = std::unordered_map<Key, Value>;
-
+using HashMap = robin_hood::unordered_map<Key, Value>;
 

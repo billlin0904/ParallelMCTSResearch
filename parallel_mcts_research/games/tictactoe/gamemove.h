@@ -8,22 +8,14 @@ namespace tictactoe {
 
 class TicTacToeGameMove {
 public:
-	TicTacToeGameMove(size_t index = 0) noexcept
+	explicit TicTacToeGameMove(size_t index = 0) noexcept
 		: index(index) {
-	}
-
-	~TicTacToeGameMove() noexcept {
 	}
 
 	size_t index;
 
-	std::string ToString() const {
-		std::ostringstream ostr;
-		ostr << index;
-		return ostr.str();
-	}
-
 private:
+	friend std::ostream& operator<<(std::ostream& ostr, const TicTacToeGameMove& move);
 	friend bool operator==(const TicTacToeGameMove& lhs, const TicTacToeGameMove& rhs) noexcept;
 };
 
@@ -31,13 +23,17 @@ inline bool operator==(const TicTacToeGameMove& lhs, const TicTacToeGameMove& rh
 	return lhs.index == rhs.index;
 }
 
+inline std::ostream& operator<<(std::ostream& ostr, const TicTacToeGameMove& move) {
+	ostr << move.index;
+	return ostr;
+}
+
 }
 
 namespace std {
 	template <>
-	class hash<tictactoe::TicTacToeGameMove> {
-	public:
-		size_t operator()(const tictactoe::TicTacToeGameMove& move) const {
+	struct hash<tictactoe::TicTacToeGameMove> {
+		size_t operator()(const tictactoe::TicTacToeGameMove& move) const noexcept {
 			return move.index;
 		}
 	};

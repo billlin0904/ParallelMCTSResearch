@@ -4,31 +4,21 @@
 
 #include <cstdint>
 #include <utility>
-#include <cstdlib>
-#include <string>
 
 namespace gomoku {
 
 class GomokuGameMove {
 public:
-	GomokuGameMove(int8_t row = 0, int8_t column = 0) noexcept
+	explicit GomokuGameMove(int8_t row = 0, int8_t column = 0) noexcept
 		: row(row)
 		, column(column) {
 	}
-
-	~GomokuGameMove() noexcept {
-	}
-
+	
 	int8_t row;
 	int8_t column;
 
-	std::string ToString() const {
-		char buffer[16] = { 0 };
-		snprintf(buffer, 16, "%d,%d", row, column);
-		return buffer;
-	}
-
 private:
+	friend std::ostream& operator<<(std::ostream& ostr, const GomokuGameMove &move);
 	friend bool operator==(const GomokuGameMove& lhs, const GomokuGameMove& rhs) noexcept;
 };
 
@@ -36,14 +26,29 @@ inline bool operator==(const GomokuGameMove& lhs, const GomokuGameMove& rhs) noe
 	return lhs.row == rhs.row && lhs.column == rhs.column;
 }
 
+inline std::ostream& operator<<(std::ostream& ostr, const GomokuGameMove& move) {
+	char buffer[16] = { 0 };
+	snprintf(buffer, 16, "%d,%d", move.row, move.column);
+	ostr << buffer;
+	return ostr;
+}
+
+}
+
+template <typename T>
+void HashCombine(std::size_t& seed, const T& v) noexcept {
+	std::hash<T> hasher;
+	seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
 namespace std {
 	template <>
-	class hash<gomoku::GomokuGameMove> {
-	public:
-		size_t operator()(const gomoku::GomokuGameMove& move) const {
-			return  move.row ^ move.column;
+	struct hash<gomoku::GomokuGameMove> {
+		size_t operator()(const gomoku::GomokuGameMove& move) const noexcept {
+			size_t seed = 0;
+			::HashCombine(seed, move.row);
+			::HashCombine(seed, move.column);
+			return seed;
 		}
 	};
 }
