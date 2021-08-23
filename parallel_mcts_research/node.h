@@ -54,7 +54,7 @@ public:
                     next_move,
                     parent);
         children_.push_back(new_node);
-        RemoveMove(next_move);
+        possible_moves_.erase(next_move);
         return new_node;
     }
 
@@ -65,10 +65,6 @@ public:
     [[nodiscard]] bool HasPassibleMoves() const noexcept {
 		return !possible_moves_.empty();
 	}
-
-    void Update(double score) noexcept {
-		ucb1_policy_.Update(score);
-    }
 
 	void Update(double score, int32_t visits) noexcept {
 		ucb1_policy_.Update(score, visits);
@@ -119,10 +115,6 @@ public:
 	}
 
 private:
-    void RemoveMove(const Move& move) {
-		possible_moves_.erase(move);
-    }
-    
     int8_t player_id_;       
     Move move_;
     parent_ptr_type parent_;

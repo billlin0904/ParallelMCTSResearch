@@ -12,7 +12,133 @@
 #include <vector>
 #include <condition_variable>
 
+#ifdef _WIN32
+#pragma comment(lib, "Synchronization.lib")
+#include <windows.h>
+#endif
+
 namespace mcts {
+
+#ifdef _WIN32
+class SRWMutex final {
+public:
+    SRWMutex() = default;
+
+	void lock() noexcept {
+        ::AcquireSRWLockExclusive(&lock_);
+	}
+
+    void unlock() noexcept {
+        ::ReleaseSRWLockExclusive(&lock_);
+	}
+
+    [[nodiscard]] bool try_lock() noexcept {
+        return ::TryAcquireSRWLockExclusive(&lock_);
+	}
+private:
+    SRWLOCK lock_ = SRWLOCK_INIT;
+};
+
+using FastMutex = SRWMutex;
+
+static constexpr uint32_t kUnlocked = 0;
+static constexpr uint32_t kLocked = 1;
+static constexpr uint32_t kSleeper = 2;
+
+class FutexMutexConditionVariable final {
+public:
+    FutexMutexConditionVariable() = default;
+
+	void wait(std::unique_lock<FastMutex>& lock) {
+        auto old_state = state_.load(std::memory_order_relaxed);
+        lock.unlock();
+        FutexWait(state_, old_state);
+        lock.lock();
+	}
+
+    template <typename Predicate>
+    void wait(std::unique_lock<FastMutex>& lock, Predicate&& predicate) {
+        while (!predicate()) {
+            wait(lock);
+        }
+    }
+
+    template <typename Rep, typename Period>
+    std::cv_status wait_for(std::unique_lock<FastMutex>& lock, const std::chrono::duration<Rep, Period>& rel_time) {
+        auto old_state = state_.load(std::memory_order_relaxed);
+        lock.unlock();
+        auto ret = FutexWait(state_, old_state, rel_time) == -1
+            ? std::cv_status::timeout : std::cv_status::no_timeout;
+        lock.lock();
+        return ret;
+    }
+
+    void notify_one() noexcept {
+        state_.fetch_add(kLocked, std::memory_order_relaxed);
+        FutexWakeSingle(state_);
+    }
+
+    void notify_all() noexcept {
+        state_.fetch_add(kLocked, std::memory_order_relaxed);
+        FutexWakeSingle(state_);
+    }
+private:
+    template <typename Rep, typename Period>
+    int FutexWait(std::atomic<uint32_t>& to_wait_on, uint32_t expected, std::chrono::duration<Rep, Period> const& duration) {
+        using namespace std::chrono;
+        timespec ts;
+        ts.tv_sec = duration_cast<seconds>(duration).count();
+        ts.tv_nsec = duration_cast<nanoseconds>(duration).count() % 1000000000;
+        return FutexWait(to_wait_on, expected, &ts);
+    }
+
+    int FutexWait(std::atomic<uint32_t>& to_wait_on, uint32_t expected, const struct timespec* to) {
+        if (to == nullptr) {
+            FutexWait(to_wait_on, expected);
+            return 0;
+        }
+
+        if (to->tv_nsec >= 1000000000) {
+            errno = EINVAL;
+            return -1;
+        }
+
+        if (to->tv_sec >= 2147) {
+            ::WaitOnAddress(&to_wait_on, &expected, sizeof(expected), 2147000000);
+            return 0; /* time-out out of range, claim spurious wake-up */
+        }
+
+        const DWORD ms = (to->tv_sec * 1000000) + ((to->tv_nsec + 999) / 1000);
+
+        if (!::WaitOnAddress(&to_wait_on, &expected, sizeof(expected), ms)) {
+            errno = ETIMEDOUT;
+            return -1;
+        }
+        return 0;
+    }
+
+    void FutexWait(std::atomic<uint32_t>& to_wait_on, uint32_t expected) {
+        ::WaitOnAddress(&to_wait_on, &expected, sizeof(expected), INFINITE);
+    }
+
+    template <typename T>
+    void FutexWakeSingle(std::atomic<T>& to_wake) {
+        ::WakeByAddressSingle(&to_wake);
+    }
+
+    template <typename T>
+    void FutexWakeAll(std::atomic<T>& to_wake) {
+        ::WakeByAddressAll(&to_wake);
+    }
+
+    std::atomic<uint32_t> state_{ kUnlocked };
+};
+
+using FastConditionVariable = FutexMutexConditionVariable;
+#else
+using FastMutex = std::mutex;
+using FastConditionVariable = std::condition_variable;
+#endif
 
 using Task = std::function<void()>;
 
@@ -26,7 +152,7 @@ public:
     template <typename U>
     bool TryEnqueue(U&& task) {
         {
-            const std::unique_lock<std::mutex> lock{ mutex_, std::try_to_lock };
+            const std::unique_lock<FastMutex> lock{ mutex_, std::try_to_lock };
             if (!lock) {
                 return false;
             }
@@ -38,13 +164,13 @@ public:
 
     template <typename U>
     void Enqueue(U&& task) {
-        std::unique_lock<std::mutex> guard{ mutex_ };
+        std::unique_lock guard{ mutex_ };
         queue_.emplace_back(std::forward<U>(task));
         notify_.notify_one();
     }
 
     bool TryDequeue(Type& task) {
-        const std::unique_lock<std::mutex> lock{ mutex_, std::try_to_lock };
+        const std::unique_lock lock{ mutex_, std::try_to_lock };
 
         if (!lock || queue_.empty()) {
             return false;
@@ -56,7 +182,7 @@ public:
     }
 
     bool Dequeue(Type& task) {
-        std::unique_lock<std::mutex> guard{ mutex_ };
+        std::unique_lock guard{ mutex_ };
 
         while (queue_.empty() && !done_) {
             notify_.wait(guard);
@@ -72,7 +198,7 @@ public:
     }
 
     bool Dequeue(Type& task, std::chrono::milliseconds wait_time) {
-        std::unique_lock<std::mutex> guard{ mutex_ };
+        std::unique_lock guard{ mutex_ };
 
         // Note: cv.wait_for() does not deal with spurious wakeups
         while (queue_.empty() && !done_) {
@@ -91,15 +217,15 @@ public:
     }
 
     void Done() {
-        std::unique_lock<std::mutex> guard{ mutex_ };
+        std::unique_lock guard{ mutex_ };
         done_ = true;
         notify_.notify_all();
     }
 
 private:
     std::atomic<bool> done_;
-    mutable std::mutex mutex_;
-    std::condition_variable notify_;
+    mutable FastMutex mutex_;
+    FastConditionVariable notify_;
     std::deque<Type> queue_;
 };
 

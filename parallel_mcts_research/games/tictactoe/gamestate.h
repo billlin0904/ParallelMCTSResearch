@@ -24,15 +24,16 @@ public:
 	TicTacToeGameState()
 		: winner_exists_(false)
 		, is_terminal_(false)
-		, player_id_(kPlayerID) {
+		, player_id_(kPlayerID)
+		, board_() {
         board_.fill(kEmpty);
 	}
 
-	bool IsTerminal() const noexcept {
+	[[nodiscard]] bool IsTerminal() const noexcept {
 		return is_terminal_;
 	}
 
-	bool IsWinnerExsts() const noexcept {
+	[[nodiscard]] bool IsWinnerExist() const noexcept {
 		return winner_exists_;
 	}
 
@@ -57,31 +58,35 @@ public:
 		last_move_ = move;
 	}
 
-	double Evaluate() const noexcept {
+	[[nodiscard]] double Evaluate() const noexcept {
 		if ((is_terminal_ == true) && (winner_exists_ == false)) {
 			return 0;
 		}
 		return (player_id_ == kPlayerID) ? -1 : 1;
 	}
 
-	TicTacToeGameMove GetRandomMove() const {
+    [[nodiscard]] TicTacToeGameMove GetRandomMove() const {
+		//auto legal_moves = GetLegalMoves();
+		//auto itr = std::next(std::begin(legal_moves), RNG::Get()(0, static_cast<int32_t>(legal_moves.size() - 1)));
+		//return *itr;
 		auto legal_moves = GetLegalMoves();
-		auto itr = std::next(std::begin(legal_moves), RNG::Get()(0, static_cast<int32_t>(legal_moves.size() - 1)));
-		return *itr;
+		std::vector<TicTacToeGameMove> temp(legal_moves.begin(), legal_moves.end());
+		RNG::Get().Shuffle(temp.begin(), temp.end());
+		return temp.front();
 	}
 
-	int8_t GetPlayerID() const noexcept {
+	[[nodiscard]] int8_t GetPlayerID() const noexcept {
 		return player_id_;
 	}
 
-	bool IsLegalMove(const TicTacToeGameMove& move) const {
+	[[nodiscard]] bool IsLegalMove(const TicTacToeGameMove& move) const {
 		if (board_.size() < move.index) {
 			return false;
 		}
         return board_.at(move.index) == kEmpty;
 	}
 
-	HashSet<TicTacToeGameMove> GetLegalMoves() const noexcept {
+	[[nodiscard]] HashSet<TicTacToeGameMove> GetLegalMoves() const noexcept {
 		HashSet<TicTacToeGameMove> legal_moves;
 		int32_t i = 0;
 		for (auto c : board_) {
@@ -93,7 +98,7 @@ public:
 		return legal_moves;
 	}
 
-	int8_t CheckWinner() const noexcept {
+	[[nodiscard]] int8_t CheckWinner() const noexcept {
 		for (auto i = 0; i < 9; i += 3) {
 			if (board_[i] == board_[i + 1] && board_[i + 1] == board_[i + 2] && board_[i]) {
 				return board_[i];
@@ -117,7 +122,7 @@ public:
         return kEmpty;
 	}
 
-	int8_t GetWinner() const {
+	[[nodiscard]] int8_t GetWinner() const {
 		return player_id_;
 	}
 

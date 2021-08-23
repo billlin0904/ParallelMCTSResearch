@@ -62,7 +62,7 @@ private:
     int32_t rollout_limit_;
     node_ptr_type root_;
     node_ptr_type current_node_;
-    std::mutex root_mutex_;
+    FastMutex root_mutex_;
 };
 
 template <typename State, typename Move, typename UCB1Policy>

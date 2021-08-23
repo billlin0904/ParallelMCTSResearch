@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <sstream>
 #include <iomanip>
+#include <vector>
 
 #include "../../mcts.h"
 #include "../../rng.h"
@@ -16,8 +17,8 @@ namespace gomoku {
 
 using namespace mcts;
 
-inline constexpr int32_t kMaxWidth = 7;
-inline constexpr int32_t kMaxHeight = 7;
+inline constexpr int32_t kMaxWidth = 15;
+inline constexpr int32_t kMaxHeight = 15;
 
 class GomokuGameState {
 public:
@@ -28,7 +29,7 @@ public:
 	GomokuGameState()
 		: winner_exists_(false)
 		, is_terminal_(false)
-		, player_id_(1)
+		, player_id_(kPlayerID)
         , remain_move_(kMaxWidth * kMaxHeight)
         , board_(kMaxHeight) {
         legal_moves_.reserve(kMaxWidth * kMaxHeight);
@@ -40,11 +41,11 @@ public:
 		}
 	}
 
-	bool IsEmptyMove() const noexcept {
+    [[nodiscard]] bool IsEmptyMove() const noexcept {
         return remain_move_ == kMaxWidth * kMaxHeight;
 	}
 
-	bool IsWinnerExsts() const noexcept {
+	[[nodiscard]] bool IsWinnerExist() const noexcept {
 		return winner_exists_;
 	}
 
@@ -69,25 +70,26 @@ public:
 		player_id_ = ((player_id_ == kPlayerID) ? kOpponentID : kPlayerID);
 	}
 
-	double Evaluate() const noexcept {
+	[[nodiscard]] double Evaluate() const noexcept {
 		if ((is_terminal_ == true) && (winner_exists_ == false)) {
             return 0;
 		}
         return (player_id_ == kPlayerID) ? -1 : 1;
 	}
 
-	bool IsTerminal() const noexcept {
+	[[nodiscard]] bool IsTerminal() const noexcept {
 		return is_terminal_;
 	}
 
-	GomokuGameMove GetRandomMove() const {
-		const auto& legal_moves = GetLegalMoves();
+	[[nodiscard]] GomokuGameMove GetRandomMove() const {
+		auto const &legal_moves = GetLegalMoves();
 		assert(!legal_moves.empty());
-		auto itr = std::next(std::begin(legal_moves), RNG::Get()(0, int32_t(legal_moves.size() - 1)));
-		return *itr;
+		std::vector<GomokuGameMove> temp(legal_moves.begin(), legal_moves.end());		
+		RNG::Get().Shuffle(temp.begin(), temp.end());
+		return temp.front();
 	}
 
-	int8_t GetPlayerID() const noexcept {
+	[[nodiscard]] int8_t GetPlayerID() const noexcept {
 		return player_id_;
 	}
 
@@ -98,17 +100,17 @@ public:
 		is_terminal_ = remain_move_ == 0;
 	}
 
-	bool IsLegalMove(const GomokuGameMove& move) const {
+	[[nodiscard]] bool IsLegalMove(const GomokuGameMove& move) const {
         assert(move.row < kMaxWidth && move.column < kMaxHeight);
 		assert(!is_terminal_ && !winner_exists_);
         return board_[move.row][move.column] == kEmpty;
 	}
 
-	const HashSet<GomokuGameMove>& GetLegalMoves() const noexcept {
+	[[nodiscard]] const HashSet<GomokuGameMove>& GetLegalMoves() const noexcept {
 		return legal_moves_;
 	}
 
-	int8_t GetWinner() const {
+	[[nodiscard]] int8_t GetWinner() const {
         for (auto row = 0; row < kMaxWidth; ++row) {
             for (auto col = 0; col < kMaxHeight; ++col) {
                 if (board_[row][col] != kEmpty) {
@@ -131,7 +133,7 @@ public:
 	}
 
 private:
-	int8_t CheckWinner(const GomokuGameMove& move) const noexcept {
+	[[nodiscard]] int8_t CheckWinner(const GomokuGameMove& move) const noexcept {
         if (board_[move.row][move.column] != kEmpty) {
 			if (Count(board_[move.row][move.column], move.row, move.column, 1, 0) >= 5) {
 				return board_[move.row][move.column];
@@ -149,7 +151,7 @@ private:
         return kEmpty;
 	}
 
-	int8_t Count(int8_t player, int32_t row, int32_t col, int32_t dir_x, int32_t dir_y) const noexcept {
+	[[nodiscard]] int8_t Count(int8_t player, int32_t row, int32_t col, int32_t dir_x, int32_t dir_y) const noexcept {
 		auto ct = 1;
 
 		auto r = row + dir_x;

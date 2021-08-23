@@ -27,9 +27,7 @@ inline bool operator==(const GomokuGameMove& lhs, const GomokuGameMove& rhs) noe
 }
 
 inline std::ostream& operator<<(std::ostream& ostr, const GomokuGameMove& move) {
-	char buffer[16] = { 0 };
-	snprintf(buffer, 16, "%d,%d", move.row, move.column);
-	ostr << buffer;
+	ostr << static_cast<int32_t>(move.row) << "," << static_cast<int32_t>(move.column);
 	return ostr;
 }
 

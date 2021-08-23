@@ -10,14 +10,17 @@ class RNG {
 public:
 	static RNG& Get();
 
-    template<class T, std::enable_if_t<std::is_integral<T>::value>* = nullptr>
-    T operator()(T min, T max) noexcept {
+    template <typename T, std::enable_if_t<std::is_integral<T>::value>* = nullptr>
+    inline T operator()(T min, T max) noexcept {
         return std::uniform_int_distribution(min, max)(engine_);
     }
 
+    template <typename RandomIt>
+    inline void Shuffle(RandomIt first, RandomIt last) {
+        std::shuffle(first, last, engine_);
+    }
 private:
 	RNG() noexcept;
-
     std::mt19937_64 engine_;
 };
 

@@ -3,8 +3,8 @@
 namespace mcts {
 
 RNG& RNG::Get() {
-   static thread_local RNG rng;
-   return rng;
+	static thread_local  RNG rng;
+	return rng;
 }
 
 RNG::RNG() noexcept {
