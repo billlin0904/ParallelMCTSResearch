@@ -7,15 +7,14 @@
 
 namespace gomoku {
 
-class GomokuGameMove {
-public:
-	explicit GomokuGameMove(int8_t row = 0, int8_t column = 0) noexcept
+struct GomokuGameMove {
+	explicit GomokuGameMove(uint8_t row = 0, uint8_t column = 0) noexcept
 		: row(row)
 		, column(column) {
 	}
 	
-	int8_t row;
-	int8_t column;
+	uint8_t row : 4;
+	uint8_t column : 4;
 
 private:
 	friend std::ostream& operator<<(std::ostream& ostr, const GomokuGameMove &move);

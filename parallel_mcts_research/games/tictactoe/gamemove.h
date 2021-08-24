@@ -6,8 +6,7 @@
 
 namespace tictactoe {
 
-class TicTacToeGameMove {
-public:
+struct TicTacToeGameMove {
 	explicit TicTacToeGameMove(size_t index = 0) noexcept
 		: index(index) {
 	}

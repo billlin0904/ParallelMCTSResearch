@@ -115,7 +115,7 @@ public:
 	}
 
 private:
-    int8_t player_id_;       
+    int8_t player_id_ : 2;       
     Move move_;
     parent_ptr_type parent_;
 	UCB1Policy ucb1_policy_;

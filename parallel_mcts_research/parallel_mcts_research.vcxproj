@@ -27,7 +27,7 @@
     <IntermediateDirectory>release\</IntermediateDirectory>
     <PrimaryOutput>parallel_mcts_research</PrimaryOutput>
     <WholeProgramOptimization>true</WholeProgramOptimization>
-    <EnableASAN>true</EnableASAN>
+    <EnableASAN>false</EnableASAN>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <PlatformToolset>v142</PlatformToolset>

@@ -17,8 +17,8 @@ namespace gomoku {
 
 using namespace mcts;
 
-inline constexpr int32_t kMaxWidth = 15;
-inline constexpr int32_t kMaxHeight = 15;
+inline constexpr int32_t kMaxWidth = 9;
+inline constexpr int32_t kMaxHeight = 9;
 
 class GomokuGameState {
 public:
@@ -186,7 +186,7 @@ private:
 
 	bool winner_exists_;
 	bool is_terminal_;
-	int8_t player_id_;
+	int8_t player_id_ : 2;
 	int32_t remain_move_;
 	HashSet<GomokuGameMove> legal_moves_;
 	std::vector<std::vector<int8_t>> board_;

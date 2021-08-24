@@ -14,8 +14,8 @@ std::map<int8_t, size_t> Simulation(int32_t count, bool is_show_game) {
 	std::map<int8_t, size_t> stats;
 	
 	for (auto i = 0; i < count; ++i) {
-		MCTS<State, Move> ai1(1000, 500);
-		MCTS<State, Move> ai2(1000, 500);
+		MCTS<State, Move> ai1(50000, 100000);
+		MCTS<State, Move> ai2(50000, 100000);
 
 		State game;
 
