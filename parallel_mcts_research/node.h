@@ -82,6 +82,10 @@ public:
         return board_states_;
     }
 
+    void SetState(const State& state) {
+        board_states_ = state;
+    }
+
 	const HashSet<Move>& GetMoves() const noexcept {
 		return possible_moves_;
 	}
@@ -115,7 +119,7 @@ public:
 	}
 
 private:
-    int8_t player_id_ : 2;       
+    int8_t player_id_;       
     Move move_;
     parent_ptr_type parent_;
 	UCB1Policy ucb1_policy_;

@@ -14,16 +14,20 @@ std::map<int8_t, size_t> Simulation(int32_t count, bool is_show_game) {
 	std::map<int8_t, size_t> stats;
 	
 	for (auto i = 0; i < count; ++i) {
-		MCTS<State, Move> ai1(50000, 100000);
-		MCTS<State, Move> ai2(50000, 100000);
-
+#ifdef _DEBUG
+		MCTS<State, Move> ai1(1500, 1500);
+		MCTS<State, Move> ai2(1500, 1500);
+#else
+		MCTS<State, Move> ai1(1500, 30000);
+		MCTS<State, Move> ai2(1500, 60000);
+#endif
 		State game;
 
 		if (is_show_game) {
 			std::cout << "Game start!" << std::endl;
 		}
 
-		while (!game.IsTerminal()) {
+		for (auto play_count = 0; !game.IsTerminal(); ++play_count) {
 			if (game.GetPlayerID() == kOpponentID) {
                 auto move = ai2.ParallelSearch();
 				assert(game.IsLegalMove(move));
@@ -34,13 +38,28 @@ std::map<int8_t, size_t> Simulation(int32_t count, bool is_show_game) {
 				ai1.SetOpponentMove(move);
 			}
 			else {
-                auto move = ai1.ParallelSearch();
-				assert(game.IsLegalMove(move));
-				if (is_show_game) {
-					std::cout << "AI1 turn! " << move << " rate:" << static_cast<int32_t>(ai1.GetCurrentNode()->GetWinRate() * 100) << "%\n";
+				Move move(0, 0);
+				if (play_count == 0) {
+					move = Move(4, 4);
+				} else if (play_count == 2) {
+					move = Move(1, 4);
+				} else {
+					move = ai1.ParallelSearch();
 				}
+				assert(game.IsLegalMove(move));
 				game.ApplyMove(move);
 				ai2.SetOpponentMove(move);
+				if (is_show_game) {
+					if (play_count <= 2) {
+						if (play_count == 2) {
+							ai1.GetCurrentNode()->SetState(game);
+						}
+						std::cout << "AI1 turn! " << move << "\n";
+					}					
+					else {
+						std::cout << "AI1 turn! " << move << " rate:" << static_cast<int32_t>(ai1.GetCurrentNode()->GetWinRate() * 100) << "%\n";
+					}
+				}
 			}
 			if (is_show_game) {
 				std::cout << game;

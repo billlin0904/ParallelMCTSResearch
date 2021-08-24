@@ -84,7 +84,7 @@ public:
     }
 private:
     template <typename Rep, typename Period>
-    int FutexWait(std::atomic<uint32_t>& to_wait_on, uint32_t expected, std::chrono::duration<Rep, Period> const& duration) {
+    static int FutexWait(std::atomic<uint32_t>& to_wait_on, uint32_t expected, std::chrono::duration<Rep, Period> const& duration) {
         using namespace std::chrono;
         timespec ts;
         ts.tv_sec = duration_cast<seconds>(duration).count();
@@ -92,7 +92,7 @@ private:
         return FutexWait(to_wait_on, expected, &ts);
     }
 
-    int FutexWait(std::atomic<uint32_t>& to_wait_on, uint32_t expected, const struct timespec* to) {
+    static int FutexWait(std::atomic<uint32_t>& to_wait_on, uint32_t expected, const struct timespec* to) {
         if (to == nullptr) {
             FutexWait(to_wait_on, expected);
             return 0;
@@ -117,17 +117,17 @@ private:
         return 0;
     }
 
-    void FutexWait(std::atomic<uint32_t>& to_wait_on, uint32_t expected) {
+    static void FutexWait(std::atomic<uint32_t>& to_wait_on, uint32_t expected) {
         ::WaitOnAddress(&to_wait_on, &expected, sizeof(expected), INFINITE);
     }
 
     template <typename T>
-    void FutexWakeSingle(std::atomic<T>& to_wake) {
+    static void FutexWakeSingle(std::atomic<T>& to_wake) {
         ::WakeByAddressSingle(&to_wake);
     }
 
     template <typename T>
-    void FutexWakeAll(std::atomic<T>& to_wake) {
+    static void FutexWakeAll(std::atomic<T>& to_wake) {
         ::WakeByAddressAll(&to_wake);
     }
 

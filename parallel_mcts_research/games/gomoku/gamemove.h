@@ -8,13 +8,13 @@
 namespace gomoku {
 
 struct GomokuGameMove {
-	explicit GomokuGameMove(uint8_t row = 0, uint8_t column = 0) noexcept
+	explicit GomokuGameMove(int8_t row = 0, int8_t column = 0) noexcept
 		: row(row)
 		, column(column) {
 	}
 	
-	uint8_t row : 4;
-	uint8_t column : 4;
+	int8_t row;
+	int8_t column;
 
 private:
 	friend std::ostream& operator<<(std::ostream& ostr, const GomokuGameMove &move);

@@ -4,7 +4,7 @@
 
 #include <cassert>
 #include <cstdint>
-#include <sstream>
+#include <bitset>
 #include <iomanip>
 #include <vector>
 
@@ -19,6 +19,10 @@ using namespace mcts;
 
 inline constexpr int32_t kMaxWidth = 9;
 inline constexpr int32_t kMaxHeight = 9;
+
+struct Bitboard {
+	std::bitset<kMaxWidth * kMaxHeight> board;
+};
 
 class GomokuGameState {
 public:
@@ -84,9 +88,8 @@ public:
 	[[nodiscard]] GomokuGameMove GetRandomMove() const {
 		auto const &legal_moves = GetLegalMoves();
 		assert(!legal_moves.empty());
-		std::vector<GomokuGameMove> temp(legal_moves.begin(), legal_moves.end());		
-		RNG::Get().Shuffle(temp.begin(), temp.end());
-		return temp.front();
+		auto itr = std::next(std::begin(legal_moves), RNG::Get()(0, static_cast<int32_t>(legal_moves.size() - 1)));
+		return *itr;
 	}
 
 	[[nodiscard]] int8_t GetPlayerID() const noexcept {
@@ -186,7 +189,7 @@ private:
 
 	bool winner_exists_;
 	bool is_terminal_;
-	int8_t player_id_ : 2;
+	int8_t player_id_;
 	int32_t remain_move_;
 	HashSet<GomokuGameMove> legal_moves_;
 	std::vector<std::vector<int8_t>> board_;

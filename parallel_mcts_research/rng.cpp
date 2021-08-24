@@ -2,8 +2,10 @@
 
 namespace mcts {
 
+FastMutex RNG::mutex_;
+
 RNG& RNG::Get() {
-	static thread_local  RNG rng;
+	static RNG rng;
 	return rng;
 }
 

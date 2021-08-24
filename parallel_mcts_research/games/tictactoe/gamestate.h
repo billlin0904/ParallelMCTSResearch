@@ -66,13 +66,9 @@ public:
 	}
 
     [[nodiscard]] TicTacToeGameMove GetRandomMove() const {
-		//auto legal_moves = GetLegalMoves();
-		//auto itr = std::next(std::begin(legal_moves), RNG::Get()(0, static_cast<int32_t>(legal_moves.size() - 1)));
-		//return *itr;
 		auto legal_moves = GetLegalMoves();
-		std::vector<TicTacToeGameMove> temp(legal_moves.begin(), legal_moves.end());
-		RNG::Get().Shuffle(temp.begin(), temp.end());
-		return temp.front();
+		auto itr = std::next(std::begin(legal_moves), RNG::Get()(0, static_cast<int32_t>(legal_moves.size() - 1)));
+		return *itr;
 	}
 
 	[[nodiscard]] int8_t GetPlayerID() const noexcept {
