@@ -322,19 +322,14 @@ private:
 
 class ThreadPool {
 public:
-    static ThreadPool& Get() {
-        static ThreadPool thread_pool;
-        return thread_pool;
+    explicit ThreadPool(size_t max_thread = std::thread::hardware_concurrency())
+        : scheduler_(max_thread) {
     }
 
     template <class F, class... Args>
     std::future<typename std::result_of<F(Args ...)>::type> Spawn(F&& f, Args&& ... args);
 
 private:
-    explicit ThreadPool(size_t max_thread = std::thread::hardware_concurrency() * 2 + 1)
-        : scheduler_(max_thread) {
-    }
-
     TaskScheduler<Task> scheduler_;
 };
 
@@ -353,10 +348,10 @@ std::future<typename std::result_of<F(Args ...)>::type> ThreadPool::Spawn(F&& f,
 }
 
 template <typename IndexType, typename Function>
-std::vector<std::future<void>> ParallelFor(IndexType first, IndexType last, IndexType step, Function &&fun) {
+std::vector<std::future<void>> ParallelFor(ThreadPool &pool, IndexType first, IndexType last, IndexType step, Function &&fun) {
     std::vector<std::future<void>> futs;
     for (auto i = first; i < last; i += step) {
-        futs.push_back(ThreadPool::Get().Spawn([i, fun]() {
+        futs.push_back(pool.Spawn([i, fun]() {
             fun(i);
         }));
     }
@@ -364,8 +359,8 @@ std::vector<std::future<void>> ParallelFor(IndexType first, IndexType last, Inde
 }
 
 template <typename IndexType, typename Function>
-void ParallelFor(IndexType count, Function &&fun) {
-    auto tasks = ParallelFor(IndexType(0), count, IndexType(1), [fun](IndexType i) {
+void ParallelFor(ThreadPool& pool, IndexType count, Function &&fun) {
+    auto tasks = ParallelFor(pool, IndexType(0), count, IndexType(1), [fun](IndexType i) {
         fun(i);
     });
 

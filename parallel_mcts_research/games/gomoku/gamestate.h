@@ -17,8 +17,8 @@ namespace gomoku {
 
 using namespace mcts;
 
-inline constexpr int32_t kMaxWidth = 9;
-inline constexpr int32_t kMaxHeight = 9;
+inline constexpr int32_t kMaxWidth = 8;
+inline constexpr int32_t kMaxHeight = 8;
 
 struct Bitboard {
 	std::bitset<kMaxWidth * kMaxHeight> board;
@@ -27,7 +27,7 @@ struct Bitboard {
 class GomokuGameState {
 public:
     static constexpr int8_t kPlayer1 = 'O';
-    static constexpr int8_t kPlayer2 = '@';
+    static constexpr int8_t kPlayer2 = '*';
     static constexpr int8_t kEmpty = ' ';
 
 	GomokuGameState()

@@ -19,7 +19,7 @@ std::map<int8_t, size_t> Simulation(int32_t count, bool is_show_game) {
 		MCTS<State, Move> ai2(1500, 1500);
 #else
 		MCTS<State, Move> ai1(1500, 30000);
-		MCTS<State, Move> ai2(1500, 60000);
+		MCTS<State, Move> ai2(3000, 30000);
 #endif
 		State game;
 
@@ -72,6 +72,12 @@ std::map<int8_t, size_t> Simulation(int32_t count, bool is_show_game) {
 		else {
             ++stats[State::kEmpty];
 		}
+
+		if (is_show_game) {
+			std::cout << State::kPlayer1 << " win:" << stats[State::kPlayer1] << "\n";
+			std::cout << State::kPlayer2 << " win:" << stats[State::kPlayer2] << "\n";
+			std::cout << "Tie" << " win:" << stats[State::kEmpty] << "\n";
+		}		
 	}
 	return stats;
 }
