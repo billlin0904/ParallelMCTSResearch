@@ -1,10 +1,9 @@
-// Copyright (c) 2019 ParallelMCTSResearch project.
+ // Copyright (c) 2019 ParallelMCTSResearch project.
 
 #include <iostream>
 #include <map>
 
 #include "mcts.h"
-#include "games/tictactoe/gamestate.h"
 #include "games/gomoku/gamestate.h"
 
 using namespace mcts;
@@ -18,8 +17,8 @@ std::map<int8_t, size_t> Simulation(int32_t count, bool is_show_game) {
 		MCTS<State, Move> ai1(1500, 1500);
 		MCTS<State, Move> ai2(1500, 1500);
 #else
-		MCTS<State, Move> ai1(1500, 30000);
-		MCTS<State, Move> ai2(3000, 30000);
+		MCTS<State, Move> ai1(85000, 15000);
+		MCTS<State, Move> ai2(85000, 15000);
 #endif
 		State game;
 
@@ -32,7 +31,8 @@ std::map<int8_t, size_t> Simulation(int32_t count, bool is_show_game) {
                 auto move = ai2.ParallelSearch();
 				assert(game.IsLegalMove(move));
 				if (is_show_game) {
-					std::cout << "AI2 turn! " << move << " rate:" << static_cast<int32_t>(ai2.GetCurrentNode()->GetWinRate() * 100) << "%\n";
+					std::cout << "AI2 turn! " << State::kPlayer2 << " " << move
+					<< " rate:" << static_cast<int32_t>(ai2.GetCurrentNode()->GetWinRate() * 100) << "%\n";
 				}
 				game.ApplyMove(move);
 				ai1.SetOpponentMove(move);
@@ -40,9 +40,9 @@ std::map<int8_t, size_t> Simulation(int32_t count, bool is_show_game) {
 			else {
 				Move move(0, 0);
 				if (play_count == 0) {
-					move = Move(4, 4);
+					move = Move(7, 7);
 				} else if (play_count == 2) {
-					move = Move(1, 4);
+					move = Move(1, 7);
 				} else {
 					move = ai1.ParallelSearch();
 				}
@@ -57,7 +57,8 @@ std::map<int8_t, size_t> Simulation(int32_t count, bool is_show_game) {
 						std::cout << "AI1 turn! " << move << "\n";
 					}					
 					else {
-						std::cout << "AI1 turn! " << move << " rate:" << static_cast<int32_t>(ai1.GetCurrentNode()->GetWinRate() * 100) << "%\n";
+						std::cout << "AI1 turn! " << State::kPlayer1 << " " << move
+						<< " rate:" << static_cast<int32_t>(ai1.GetCurrentNode()->GetWinRate() * 100) << "%\n";
 					}
 				}
 			}
@@ -83,7 +84,7 @@ std::map<int8_t, size_t> Simulation(int32_t count, bool is_show_game) {
 }
 
 template <typename State, typename Move>
-void Eval(int32_t count = 1000, bool is_show_game = false) {
+void Gomoku(int32_t count = 1000, bool is_show_game = false) {
 	std::map<int8_t, size_t> stats = Simulation<State, Move>(count, is_show_game);
 	std::cout << State::kPlayer1 << " win:" << stats[State::kPlayer1] << "\n";
 	std::cout << State::kPlayer2 << " win:" << stats[State::kPlayer2] << "\n";
@@ -92,8 +93,6 @@ void Eval(int32_t count = 1000, bool is_show_game = false) {
 
 int main() {
     using namespace gomoku;
-    Eval<GomokuGameState, GomokuGameMove>(1000, true);
-    //using namespace tictactoe;
-    //Eval<TicTacToeGameState, TicTacToeGameMove>(1000, true);
+	Gomoku<GomokuGameState, GomokuGameMove>(1000, true);
 	std::cin.get();
 }

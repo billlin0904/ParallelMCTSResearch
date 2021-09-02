@@ -36,9 +36,9 @@ public:
 
     void SetSearchLimit(int32_t evaluate_count, int32_t rollout_limit);
 
-    Move Search(milliseconds search_time = milliseconds(5000));
+    Move Search(milliseconds search_time = milliseconds(9000));
 
-    Move ParallelSearch(milliseconds search_time = milliseconds(5000));
+    Move ParallelSearch(milliseconds search_time = milliseconds(9000));
 
     void SetOpponentMove(const Move& opponent_move);
 
@@ -146,9 +146,13 @@ Move MCTS<State, Move, UCB1Policy>::ParallelSearch(milliseconds search_time) {
         if (cancelled_) {
             return;
         }
+        node_ptr_type selected_leaf;
+        {
+            std::lock_guard guard{ root_mutex_ };
+            auto selected_parent = Select();
+            selected_leaf = Expand(selected_parent);
+        }
         std::lock_guard guard{ root_mutex_ };
-        auto selected_parent = Select();
-        auto selected_leaf = Expand(selected_parent);
         auto score = Rollout(selected_leaf);
         BackPropagation(selected_leaf, score);
     });
@@ -207,20 +211,22 @@ template <typename State, typename Move, typename UCB1Policy>
 double MCTS<State, Move, UCB1Policy>::Rollout(const node_ptr_type& leaf) {
     std::atomic<double> total_score = 0.0;
 
-#define fetch_add_double(atomic_var, inc) \
+#define FETCH_ADD_DOUBLE(atomic_var, inc) \
     auto current = atomic_var.load(); \
-    while (!atomic_var.compare_exchange_weak(current, current + inc))
+    while (!atomic_var.compare_exchange_weak(current, current + inc)){}
 
     mcts::ParallelFor(rollout_tp_, rollout_limit_, [&total_score, leaf, this](auto i) {
-            auto state = leaf->GetState();
-            while (!state.IsTerminal()) {
-                state.ApplyMove(state.GetRandomMove());
-            }
-            double result = state.Evaluate();
-            result = 0.5 * (result + 1) * (current_node_->GetPlayerID() == kPlayerID)
-                + 0.5 * (1 - result) * (current_node_->GetPlayerID() == kOpponentID);
-            fetch_add_double(total_score, result);
-        });
+        //for (auto i = 0; i < rollout_limit_; ++i) {
+        auto state = leaf->GetState();
+        while (!state.IsTerminal()) {
+            state.ApplyMove(state.GetRandomMove());
+        }
+        double result = state.Evaluate();
+        result = 0.5 * (result + 1) * (current_node_->GetPlayerID() == kPlayerID)
+            + 0.5 * (1 - result) * (current_node_->GetPlayerID() == kOpponentID);
+        FETCH_ADD_DOUBLE(total_score, result)
+        //}
+    });
     return total_score;
 }
 
