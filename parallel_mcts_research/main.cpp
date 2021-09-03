@@ -10,6 +10,9 @@ using namespace mcts;
 
 template <typename State, typename Move>
 std::map<int8_t, size_t> Simulation(int32_t count, bool is_show_game) {
+	ThreadPool select_tp;
+	ThreadPool rollout_tp;
+
 	std::map<int8_t, size_t> stats;
 	
 	for (auto i = 0; i < count; ++i) {
@@ -28,7 +31,7 @@ std::map<int8_t, size_t> Simulation(int32_t count, bool is_show_game) {
 
 		for (auto play_count = 0; !game.IsTerminal(); ++play_count) {
 			if (game.GetPlayerID() == kOpponentID) {
-                auto move = ai2.ParallelSearch();
+                auto move = ai2.ParallelSearch(select_tp, rollout_tp);
 				assert(game.IsLegalMove(move));
 				if (is_show_game) {
 					std::cout << "AI2 turn! " << State::kPlayer2 << " " << move
@@ -40,11 +43,11 @@ std::map<int8_t, size_t> Simulation(int32_t count, bool is_show_game) {
 			else {
 				Move move(0, 0);
 				if (play_count == 0) {
-					move = Move(7, 7);
+					move = Move(4, 4);
 				} else if (play_count == 2) {
-					move = Move(1, 7);
+					move = Move(1, 4);
 				} else {
-					move = ai1.ParallelSearch();
+					move = ai1.ParallelSearch(select_tp, rollout_tp);
 				}
 				assert(game.IsLegalMove(move));
 				game.ApplyMove(move);

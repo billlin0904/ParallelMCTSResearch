@@ -322,7 +322,7 @@ private:
 
 class ThreadPool {
 public:
-    explicit ThreadPool(size_t max_thread = std::thread::hardware_concurrency() * 2 + 1)
+    explicit ThreadPool(size_t max_thread = std::thread::hardware_concurrency())
         : scheduler_(max_thread) {
     }
 

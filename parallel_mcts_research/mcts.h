@@ -36,9 +36,7 @@ public:
 
     void SetSearchLimit(int32_t evaluate_count, int32_t rollout_limit);
 
-    Move Search(milliseconds search_time = milliseconds(9000));
-
-    Move ParallelSearch(milliseconds search_time = milliseconds(9000));
+    Move ParallelSearch(ThreadPool &select_tp, ThreadPool &rollout_tp, milliseconds search_time = milliseconds(30000));
 
     void SetOpponentMove(const Move& opponent_move);
 
@@ -53,7 +51,7 @@ private:
 
     node_ptr_type Expand(node_ptr_type& node);
 
-    double Rollout(const node_ptr_type& leaf);
+    double Rollout(const node_ptr_type& leaf, ThreadPool& rollout_tp);
 
     void BackPropagation(const node_ptr_type& leaf, double score);
 
@@ -63,8 +61,6 @@ private:
     node_ptr_type root_;
     node_ptr_type current_node_;
     FastMutex root_mutex_;
-    ThreadPool select_tp_;
-    ThreadPool rollout_tp_;
 };
 
 template <typename State, typename Move, typename UCB1Policy>
@@ -121,27 +117,10 @@ typename MCTS<State, Move, UCB1Policy>::node_ptr_type MCTS<State, Move, UCB1Poli
 }
 
 template <typename State, typename Move, typename UCB1Policy>
-Move MCTS<State, Move, UCB1Policy>::Search(milliseconds search_time) {
-	cancelled_ = false;
-    auto start_tp = steady_clock::now();
-
-    for (auto i = 0; i < evaluate_count_
-        && duration_cast<milliseconds>(steady_clock::now() - start_tp) < search_time; ++i) {
-        auto selected_parent = Select();
-        auto selected_leaf = Expand(selected_parent);
-        auto score = Rollout(selected_leaf);
-        BackPropagation(selected_leaf, score);
-    }
-
-    current_node_ = GetBestChild(current_node_);
-    return current_node_->GetLastMove();
-}
-
-template <typename State, typename Move, typename UCB1Policy>
-Move MCTS<State, Move, UCB1Policy>::ParallelSearch(milliseconds search_time) {
+Move MCTS<State, Move, UCB1Policy>::ParallelSearch(ThreadPool& select_tp, ThreadPool& rollout_tp, milliseconds search_time) {
     cancelled_ = false;
     auto start_tp = steady_clock::now();
-    mcts::ParallelFor(select_tp_, evaluate_count_, [this, start_tp, search_time](int32_t) {
+    mcts::ParallelFor(select_tp, evaluate_count_, [this, start_tp, search_time, &rollout_tp](int32_t) {
         cancelled_ = duration_cast<milliseconds>(steady_clock::now() - start_tp) > search_time;
         if (cancelled_) {
             return;
@@ -153,7 +132,7 @@ Move MCTS<State, Move, UCB1Policy>::ParallelSearch(milliseconds search_time) {
             selected_leaf = Expand(selected_parent);
         }
         std::lock_guard guard{ root_mutex_ };
-        auto score = Rollout(selected_leaf);
+        auto score = Rollout(selected_leaf, rollout_tp);
         BackPropagation(selected_leaf, score);
     });
     current_node_ = GetBestChild(current_node_);
@@ -173,7 +152,7 @@ void MCTS<State, Move, UCB1Policy>::SetOpponentMove(const Move& opponent_move) {
         const auto & children = current_node_->GetChildren();
         auto child = std::find_if(children.begin(), 
 								children.end(),[&opponent_move](
-                                const auto& node) {
+                                const auto& node) noexcept {
             return node->GetLastMove() == opponent_move;
         });
         assert(child != children.end());
@@ -208,15 +187,15 @@ typename MCTS<State, Move, UCB1Policy>::node_ptr_type MCTS<State, Move, UCB1Poli
 }
 
 template <typename State, typename Move, typename UCB1Policy>
-double MCTS<State, Move, UCB1Policy>::Rollout(const node_ptr_type& leaf) {
+double MCTS<State, Move, UCB1Policy>::Rollout(const node_ptr_type& leaf, ThreadPool& rollout_tp) {
     std::atomic<double> total_score = 0.0;
 
 #define FETCH_ADD_DOUBLE(atomic_var, inc) \
     auto current = atomic_var.load(); \
     while (!atomic_var.compare_exchange_weak(current, current + inc)){}
 
-    mcts::ParallelFor(rollout_tp_, rollout_limit_, [&total_score, leaf, this](auto i) {
-        //for (auto i = 0; i < rollout_limit_; ++i) {
+    mcts::ParallelFor(rollout_tp, rollout_limit_, [&total_score, leaf, this](auto) {
+    //for (auto i = 0; i < rollout_limit_; ++i) {
         auto state = leaf->GetState();
         while (!state.IsTerminal()) {
             state.ApplyMove(state.GetRandomMove());
@@ -225,7 +204,7 @@ double MCTS<State, Move, UCB1Policy>::Rollout(const node_ptr_type& leaf) {
         result = 0.5 * (result + 1) * (current_node_->GetPlayerID() == kPlayerID)
             + 0.5 * (1 - result) * (current_node_->GetPlayerID() == kOpponentID);
         FETCH_ADD_DOUBLE(total_score, result)
-        //}
+    //}
     });
     return total_score;
 }

@@ -11,15 +11,13 @@ class RNG {
 public:
 	static RNG& Get();
 
-    template <typename T, std::enable_if_t<std::is_integral<T>::value>* = nullptr>
+    template <typename T, typename U = std::enable_if_t<std::is_integral_v<T>>>
     inline T operator()(T min, T max) noexcept {
-        std::lock_guard guard{ mutex_ };
         return std::uniform_int_distribution(min, max)(engine_);
     }
 private:
 	RNG() noexcept;
     std::mt19937_64 engine_;
-    static FastMutex mutex_;
 };
 
 }
