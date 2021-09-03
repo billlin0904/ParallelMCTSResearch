@@ -49,8 +49,8 @@ public:
 		}
 	}
 
-    [[nodiscard]] bool IsEmptyMove() const noexcept {
-        return remain_move_ == kMaxWidth * kMaxHeight;
+	[[nodiscard]] int32_t GetGameProgress() const {
+		return (remain_move_ * 100) / (kMaxWidth * kMaxHeight);
 	}
 
 	[[nodiscard]] bool IsWinnerExist() const noexcept {
@@ -265,7 +265,7 @@ private:
 			} else if (board_[r][c] == kEmpty) {
 				found_empty = true;
 			} else {
-				ct--;
+				return 0;
 			}
 			r += dir_x;
 			c += dir_y;
@@ -285,7 +285,7 @@ private:
 			else if (board_[r][c] == kEmpty) {
 				found_empty = true;
 			} else {
-				ct--;
+				return 0;
 			}
 			r -= dir_x;
 			c -= dir_y;

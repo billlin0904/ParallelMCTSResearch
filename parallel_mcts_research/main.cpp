@@ -20,8 +20,8 @@ std::map<int8_t, size_t> Simulation(int32_t count, bool is_show_game) {
 		MCTS<State, Move> ai1(1500, 1500);
 		MCTS<State, Move> ai2(1500, 1500);
 #else
-		MCTS<State, Move> ai1(85000, 15000);
-		MCTS<State, Move> ai2(85000, 15000);
+		MCTS<State, Move, UCB1TunedPolicy> ai1(85000, 15000);
+		MCTS<State, Move, UCB1TunedPolicy> ai2(85000, 15000);
 #endif
 		State game;
 
@@ -34,7 +34,7 @@ std::map<int8_t, size_t> Simulation(int32_t count, bool is_show_game) {
                 auto move = ai2.ParallelSearch(select_tp, rollout_tp);
 				assert(game.IsLegalMove(move));
 				if (is_show_game) {
-					std::cout << "AI2 turn! " << State::kPlayer2 << " " << move
+					std::cout << "AI2 turn! " << State::kPlayer2 << " " << move << " " << game.GetGameProgress() << "%"
 					<< " rate:" << static_cast<int32_t>(ai2.GetCurrentNode()->GetWinRate() * 100) << "%\n";
 				}
 				game.ApplyMove(move);
@@ -60,7 +60,7 @@ std::map<int8_t, size_t> Simulation(int32_t count, bool is_show_game) {
 						std::cout << "AI1 turn! " << move << "\n";
 					}					
 					else {
-						std::cout << "AI1 turn! " << State::kPlayer1 << " " << move
+						std::cout << "AI1 turn! " << State::kPlayer1 << " " << move << " " << game.GetGameProgress() << "%"
 						<< " rate:" << static_cast<int32_t>(ai1.GetCurrentNode()->GetWinRate() * 100) << "%\n";
 					}
 				}
